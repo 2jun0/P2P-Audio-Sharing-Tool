@@ -101,3 +101,26 @@ void AudioCapturer::start()
         throw std::runtime_error("Failed to start capture thread: " + e.what());
     }
 }
+
+void AudioCapturer::stop()
+{
+    HRESULT hr;
+
+    if (!capturingEnabled)
+        return;
+
+    capturingEnabled = false;
+    
+    if (captureThread && captureThread->joinable()) 
+    {
+        captureThread->join();
+        captureThread.reset();
+    }
+
+    if (pAudioClient)
+    {
+        hr = pAudioClient->Stop();
+        if (FAILED(hr))
+            throw std::runtime_error("Failed to stop audio client: " + hresultToString(hr));
+    }
+}
