@@ -71,3 +71,33 @@ void AudioCapturer::initAudioDevice()
     if (FAILED(hr))
         throw std::runtime_error("Failed to set event handler: " + hresultToString(hr));
 }
+
+void AudioCapturer::start() 
+{
+    HRESULT hr;
+
+    if (capturingEnabled) 
+        throw std::runtime_error("AudioCapturer::start() called while already capturing");
+
+    hr = pAudioClient->GetService(__uuidof(IAudioCaptureClient), (void **)&pCaptureClient);
+    if (FAILED(hr))
+        throw std::runtime_error("Failed to get IAudioCaptureClient: " + hresultToString(hr));
+
+    hr = pAudioClient->Start();
+    if (FAILED(hr))
+        throw std::runtime_error("Failed to start audio client: " + hresultToString(hr));
+
+    // Start capture thread
+    try 
+    {
+        capturingEnabled = true;
+        captureThread = std::make_shared<std::thread>([this]()
+            { this->audioCaptureThread(this->hEvent, this->pCaptureClient, this->pAudioClient, this->pwfx); });
+    } 
+    catch(const std::exception& e) 
+    {
+        capturingEnabled = false;
+        pAudioClient->Stop();
+        throw std::runtime_error("Failed to start capture thread: " + e.what());
+    }
+}

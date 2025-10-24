@@ -17,6 +17,8 @@ public:
     void stop();
 
 private:
+    bool capturingEnabled = false;
+
     // Windows audio capture variables
     IMMDeviceEnumerator *pEnumerator = nullptr;
     IMMDevice *pDevice = nullptr;
