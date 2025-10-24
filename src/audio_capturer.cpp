@@ -110,7 +110,7 @@ void AudioCapturer::stop()
         return;
 
     capturingEnabled = false;
-    
+
     if (captureThread && captureThread->joinable()) 
     {
         captureThread->join();
@@ -123,4 +123,69 @@ void AudioCapturer::stop()
         if (FAILED(hr))
             throw std::runtime_error("Failed to stop audio client: " + hresultToString(hr));
     }
+}
+
+void AudioCapturer::audioCaptureThread(HANDLE hEvent, IAudioCaptureClient *pCaptureClient, IAudioClient *pAudioClient, WAVEFORMATEX *pwfx)
+{
+    HRESULT hr;
+
+    if (!onReadAudioBuffer)
+    {
+        std::cerr << "[AudioCapturer] onReadAudioBuffer is null. Exiting thread." << std::endl;
+        return;
+    }
+
+    while (capturingEnabled)
+    {
+        DWORD waitResult = WaitForSingleObject(hEvent, 2000); // 최대 2초 대기
+
+        // 빈 패킷 보내기 (연결 유지용)
+        if (waitResult == WAIT_TIMEOUT)
+        {
+            // Sending empty packet to keep connection alive.
+            uint32_t nFrames = 480;
+            std::vector<uint8_t> silence(pwfx->nBlockAlign * nFrames, 0);
+            onReadAudioBuffer(silence.data(), nFrames);
+            continue;
+        }
+
+        if (waitResult != WAIT_OBJECT_0)
+        {
+            std::cerr << "[AudioCapturer] Event wait failed. Code: " << waitResult << std::endl;
+            break;
+        }
+
+        uint32_t packetLength = 0;
+        hr = pCaptureClient->GetNextPacketSize(&packetLength);
+        if (FAILED(hr))
+        {
+            std::cerr << "[AudioCapturer] Failed to get packet size (GetNextPacketSize): " << hresultToString(hr) << std::endl;
+            break;
+        }
+
+        while (packetLength > 0)
+        {
+            uint8_t *pData;
+            uint32_t nFrames;
+            DWORD flags;
+
+            hr = pCaptureClient->GetBuffer(&pData, &nFrames, &flags, nullptr, nullptr);
+            if (FAILED(hr))
+            {
+                std::cerr << "[AudioCapturer] Failed to get buffer (GetBuffer): " << hresultToString(hr) << std::endl;
+                break;
+            }
+
+            onReadAudioBuffer(pData, nFrames);
+            pCaptureClient->ReleaseBuffer(nFrames);
+            hr = pCaptureClient->GetNextPacketSize(&packetLength);
+            if (FAILED(hr))
+            {
+                std::cerr << "[AudioCapturer] Failed to get packet size (GetNextPacketSize): " << hresultToString(hr) << std::endl;
+                break;
+            }
+        }
+    }
+
+    std::cout << "[AudioCapturer] Capture thread exiting" << std::endl;
 }

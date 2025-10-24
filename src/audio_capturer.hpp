@@ -10,6 +10,8 @@
 class AudioCapturer 
 {
 public:
+    std::function<void(uint8_t*, uint32_t)> onReadAudioBuffer;
+
     AudioCapturer();
     ~AudioCapturer();
 
@@ -17,7 +19,8 @@ public:
     void stop();
 
 private:
-    bool capturingEnabled = false;
+    std::atomic<bool> capturingEnabled{false};
+    std::shared_ptr<std::thread> captureThread;
 
     // Windows audio capture variables
     IMMDeviceEnumerator *pEnumerator = nullptr;
