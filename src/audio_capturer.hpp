@@ -2,15 +2,21 @@
 #ifndef audio_capturer_hpp
 #define audio_capturer_hpp
 
+#include <iostream>
+#include <stdexcept>
+#include <memory>
+#include <thread>
+#include <atomic>
+#include <functional>
 #include <windows.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 #include "error_util.hpp"
 
-class AudioCapturer 
+class AudioCapturer
 {
 public:
-    std::function<void(uint8_t*, uint32_t)> onReadAudioBuffer;
+    std::function<void(uint8_t *, uint32_t)> onReadAudioBuffer;
 
     AudioCapturer();
     ~AudioCapturer();

@@ -2,7 +2,6 @@
 
 AudioCapturer::AudioCapturer()
 {
-    
 }
 
 AudioCapturer::~AudioCapturer()
@@ -37,7 +36,7 @@ void AudioCapturer::initAudioDevice()
 
     // 오디오 디바이스 초기화
     hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                     __uuidof(IMMDeviceEnumerator), (void **)&pEnumerator);
+                          __uuidof(IMMDeviceEnumerator), (void **)&pEnumerator);
     if (FAILED(hr))
         throw std::runtime_error("Failed to create MMDeviceEnumerator: " + hresultToString(hr));
 
@@ -55,15 +54,15 @@ void AudioCapturer::initAudioDevice()
 
     // 이벤트 생성
     hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-    if (!hEvent) 
+    if (!hEvent)
     {
         throw std::runtime_error("Failed to create event: " + win32ErrorToString(GetLastError()));
     }
 
     // 오디오 클라이언트 초기화 (이벤트 기반)
     hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED,
-                             AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
-                             0, 0, pwfx, nullptr);
+                                  AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+                                  0, 0, pwfx, nullptr);
     if (FAILED(hr))
         throw std::runtime_error("Failed to initialize audio client: " + hresultToString(hr));
 
@@ -72,11 +71,11 @@ void AudioCapturer::initAudioDevice()
         throw std::runtime_error("Failed to set event handler: " + hresultToString(hr));
 }
 
-void AudioCapturer::start() 
+void AudioCapturer::start()
 {
     HRESULT hr;
 
-    if (capturingEnabled) 
+    if (capturingEnabled)
         throw std::runtime_error("AudioCapturer::start() called while already capturing");
 
     hr = pAudioClient->GetService(__uuidof(IAudioCaptureClient), (void **)&pCaptureClient);
@@ -88,17 +87,17 @@ void AudioCapturer::start()
         throw std::runtime_error("Failed to start audio client: " + hresultToString(hr));
 
     // Start capture thread
-    try 
+    try
     {
         capturingEnabled = true;
         captureThread = std::make_shared<std::thread>([this]()
-            { this->audioCaptureThread(this->hEvent, this->pCaptureClient, this->pAudioClient, this->pwfx); });
-    } 
-    catch(const std::exception& e) 
+                                                      { this->audioCaptureThread(this->hEvent, this->pCaptureClient, this->pAudioClient, this->pwfx); });
+    }
+    catch (const std::exception &e)
     {
         capturingEnabled = false;
         pAudioClient->Stop();
-        throw std::runtime_error("Failed to start capture thread: " + e.what());
+        throw std::runtime_error(std::string("Failed to start capture thread: ") + e.what());
     }
 }
 
@@ -111,7 +110,7 @@ void AudioCapturer::stop()
 
     capturingEnabled = false;
 
-    if (captureThread && captureThread->joinable()) 
+    if (captureThread && captureThread->joinable())
     {
         captureThread->join();
         captureThread.reset();
