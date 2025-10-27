@@ -10,7 +10,7 @@ AudioCapturer::AudioCapturer()
 
 AudioCapturer::~AudioCapturer()
 {
-    // TODO: 자원 해제하기 전에 스레드 닫기
+    stop();
 
     if (pAudioClient)
         pAudioClient->Stop();
