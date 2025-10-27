@@ -1,5 +1,6 @@
 #include <iostream>
 #include <stdexcept>
+#include <cassert>
 #include "error_util.hpp"
 #include "audio_capturer.hpp"
 
@@ -130,9 +131,39 @@ void AudioCapturer::stop()
 
 std::string AudioCapturer::getFormat()
 {
-    assert
+    assert(pwfx && "pwfx is not initialized");
 
-    switch ()
+    switch (pwfx->wFormatTag)
+    {
+    case WAVE_FORMAT_PCM:
+        if (pwfx->wBitsPerSample == 16) return "S16LE";
+        if (pwfx->wBitsPerSample == 8) return "U8";
+        if (pwfx->wBitsPerSample == 24) return "S24LE";
+        if (pwfx->wBitsPerSample == 32) return "S32LE";
+        break;
+    case WAVE_FORMAT_IEEE_FLOAT:
+        if (pwfx->wBitsPerSample == 32) return "F32LE";
+        if (pwfx->wBitsPerSample == 64) return "F64LE";
+        break;
+    }
+
+    return "UNKNOWN";
+}
+int AudioCapturer::getSampleRate()
+{
+    assert(pwfx && "pwfx is not initialized");
+    return pwfx->nSamplesPerSec;
+}
+
+int AudioCapturer::getChannels()
+{
+    assert(pwfx && "pwfx is not initialized");
+    return pwfx->nChannels;
+}
+
+std::string AudioCapturer::getLayout()
+{
+    return "interleaved";
 }
 
 void AudioCapturer::audioCaptureThread(HANDLE hEvent, IAudioCaptureClient *pCaptureClient, IAudioClient *pAudioClient, WAVEFORMATEX *pwfx)
