@@ -1,7 +1,11 @@
+#include <iostream>
+#include <stdexcept>
+#include "error_util.hpp"
 #include "audio_capturer.hpp"
 
 AudioCapturer::AudioCapturer()
 {
+    initAudioDevice();
 }
 
 AudioCapturer::~AudioCapturer()
@@ -122,6 +126,13 @@ void AudioCapturer::stop()
         if (FAILED(hr))
             throw std::runtime_error("Failed to stop audio client: " + hresultToString(hr));
     }
+}
+
+std::string AudioCapturer::getFormat()
+{
+    assert
+
+    switch ()
 }
 
 void AudioCapturer::audioCaptureThread(HANDLE hEvent, IAudioCaptureClient *pCaptureClient, IAudioClient *pAudioClient, WAVEFORMATEX *pwfx)

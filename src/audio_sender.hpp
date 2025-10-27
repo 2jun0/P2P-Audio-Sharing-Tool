@@ -1,11 +1,10 @@
-#include <string>
+#ifndef audio_sender_hpp
+#define audio_sender_hpp
 
 #include <string>
-#include <stdexcept>
+#include <cstdint>
 #include <gst/gst.h>
-#include <gst/app/gstappsrc.h>
 #include <gst/gstcaps.h>
-#include <gst/gstbuffer.h>
 
 class AudioSender
 {
@@ -31,3 +30,5 @@ private:
 
     void initPipeline();
 };
+
+#endif /* audio_sender_hpp */

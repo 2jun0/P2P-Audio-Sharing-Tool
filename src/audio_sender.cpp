@@ -1,3 +1,6 @@
+#include <stdexcept>
+#include <gst/app/gstappsrc.h>
+#include <gst/gstbuffer.h>
 #include "audio_sender.hpp"
 
 AudioSender::AudioSender(const std::string &host, int port, const std::string &format, int sampleRate, int channels, const std::string &layout)

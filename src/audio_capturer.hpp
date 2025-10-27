@@ -2,8 +2,6 @@
 #ifndef audio_capturer_hpp
 #define audio_capturer_hpp
 
-#include <iostream>
-#include <stdexcept>
 #include <memory>
 #include <thread>
 #include <atomic>
@@ -11,7 +9,6 @@
 #include <windows.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
-#include "error_util.hpp"
 
 class AudioCapturer
 {
@@ -23,6 +20,11 @@ public:
 
     void start();
     void stop();
+
+    std::string getFormat();
+    int getSampleRate();
+    int getChannels();
+    std::string getLayout();
 
 private:
     std::atomic<bool> capturingEnabled{false};
