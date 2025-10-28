@@ -33,10 +33,12 @@ void AudioReceiver::initPipeline()
 void AudioReceiver::start()
 {
     assert(pipeline && "Pipeline not initialized");
-    if (started)
-        assert("AudioReceiver cannot be reused");
+    assert(!started && "AudioReceiver cannot be reused");
 
-    gst_element_set_state(pipeline, GST_STATE_PLAYING);
+    GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
+    if (ret == GST_STATE_CHANGE_FAILURE)
+        throw std::runtime_error("Failed to set pipeline to PLAYING state");
+
     started = true;
 }
 

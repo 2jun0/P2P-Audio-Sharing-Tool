@@ -2,7 +2,6 @@
 #define audio_streamer_hpp
 
 #include <string>
-#include "audio_capturer.hpp"
 #include "audio_sender.hpp"
 
 class AudioStreamer {
@@ -13,7 +12,6 @@ public:
     void stop();
 
 private:
-    std::unique_ptr<AudioCapturer> capturer;
     std::unique_ptr<AudioSender> sender;
 };
 

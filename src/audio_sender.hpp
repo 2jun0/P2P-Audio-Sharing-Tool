@@ -2,31 +2,23 @@
 #define audio_sender_hpp
 
 #include <string>
-#include <cstdint>
 #include <gst/gst.h>
-#include <gst/gstcaps.h>
 
 class AudioSender
 {
 public:
-    AudioSender(const std::string &host, int port, const std::string &format, int sampleRate, int channels, const std::string &layout);
+    AudioSender(const std::string &host, int port);
     ~AudioSender();
 
-    void pushAudio(uint8_t *data, uint32_t nFrames);
+    void start();
+    void stop();
 
 private:
     std::string host;
     int port;
 
-    GstCaps *caps = nullptr;
     GstElement *pipeline = nullptr;
-    GstElement *appsrc = nullptr;
-
-    int sampleRate;
-    int channels;
-    int blockAlign;
-
-    uint64_t totalFrames = 0;
+    bool started = false;
 
     void initPipeline();
 };
