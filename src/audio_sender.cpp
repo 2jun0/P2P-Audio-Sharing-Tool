@@ -1,4 +1,5 @@
 #include <stdexcept>
+#include <cassert>
 #include "audio_sender.hpp"
 
 AudioSender::AudioSender(const std::string &host, int port)
@@ -36,7 +37,7 @@ void AudioSender::start()
     GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE)
         throw std::runtime_error("Failed to set pipeline to PLAYING state");
-    
+
     started = true;
 }
 

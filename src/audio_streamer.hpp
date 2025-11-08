@@ -2,9 +2,11 @@
 #define audio_streamer_hpp
 
 #include <string>
+#include <memory>
 #include "audio_sender.hpp"
 
-class AudioStreamer {
+class AudioStreamer
+{
 public:
     AudioStreamer(const std::string &host, int port);
 

@@ -4,6 +4,16 @@
 #include <memory>
 #include <chrono>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#define close closesocket
+#pragma comment(lib, "ws2_32.lib")
+#else
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#endif
+
 struct Peer
 {
     std::string id;
@@ -21,7 +31,7 @@ public:
 
     void start();
     void stop();
-    
+
 private:
     int port;
     std::string id;
