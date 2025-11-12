@@ -5,12 +5,11 @@
 
 using json = nlohmann::json;
 
-SessionManager::SessionManager(int port, const std::string &id): port(port), id(id)
+SessionManager::SessionManager(int port, const std::string &id) : port(port), id(id)
 {
-
 }
 
-SessionManager::~SessionManager() 
+SessionManager::~SessionManager()
 {
     stop();
 }
@@ -18,7 +17,7 @@ SessionManager::~SessionManager()
 void SessionManager::initBroadcastSocket()
 {
     socketFd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socketFd < 0) 
+    if (socketFd < 0)
         throw std::runtime_error("Failed to create broadcast socket");
 
     int broadcastEnable = 1;
@@ -35,7 +34,7 @@ void SessionManager::initBroadcastSocket()
     localAddr.sin_family = AF_INET;
     localAddr.sin_port = htons(port);
     localAddr.sin_addr.s_addr = INADDR_ANY;
-    if (bind(socketFd, (sockaddr*)&localAddr, sizeof(localAddr)) < 0)
+    if (bind(socketFd, (sockaddr *)&localAddr, sizeof(localAddr)) < 0)
         throw std::runtime_error("Failed to bind local address");
 }
 
@@ -47,7 +46,7 @@ void SessionManager::start()
     receiveThread = std::make_unique<std::thread>(&SessionManager::receiveThreadLoop, this);
 
     pingThreadRunning = true;
-    pingThread = std::make_unique<std::thread>(&SessionManager::pingThreadLoop, this);   
+    pingThread = std::make_unique<std::thread>(&SessionManager::pingThreadLoop, this);
 }
 
 void SessionManager::stop()
@@ -79,7 +78,7 @@ void SessionManager::pingThreadLoop()
         j["from"] = id;
 
         std::string message = j.dump();
-        if (sendto(socketFd, message.c_str(), message.size(), 0, (sockaddr*)&broadcastAddr, sizeof(broadcastAddr)) < 0)
+        if (sendto(socketFd, message.c_str(), message.size(), 0, (sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) < 0)
             std::cerr << "[SessionManager] Failed to send ping" << std::endl;
 
         std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -94,8 +93,8 @@ void SessionManager::receiveThreadLoop()
 
     while (receiveThreadRunning)
     {
-        int bytes = recvfrom(socketFd, buffer, sizeof(buffer) - 1, 0, (sockaddr*)&sockAddr, &addrLen);
-        if (bytes < 0) 
+        int bytes = recvfrom(socketFd, buffer, sizeof(buffer) - 1, 0, (sockaddr *)&sockAddr, &addrLen);
+        if (bytes < 0)
         {
             std::cerr << "[SessionManager] Failed to receive message" << std::endl;
             receiveThreadRunning = false;
@@ -106,22 +105,22 @@ void SessionManager::receiveThreadLoop()
         std::string msgRow(buffer);
         std::string senderAddr = inet_ntoa(sockAddr.sin_addr);
 
-        try 
+        try
         {
             json msgJson = json::parse(msgRow);
             // check message
             if (msgJson.contains("SESSION") && msgJson["SESSION"] != "SESSION")
                 continue;
 
-            if (msgJson["type"] == "ping") 
+            if (msgJson["type"] == "ping")
             {
                 const std::string &peerId = msgJson["from"];
 
                 if (!peers.contains(peerId))
                 {
                     peers[peerId] = Peer(peerId, senderAddr, false, false, std::chrono::steady_clock::now());
-                } 
-                else 
+                }
+                else
                 {
                     peers[peerId].senderAddr = senderAddr;
                     peers[peerId].lastSeen = std::chrono::steady_clock::now();
@@ -135,19 +134,33 @@ void SessionManager::receiveThreadLoop()
                 const std::string &peerId = msgJson["from"];
                 const bool sending = msgJson["sending"];
                 const bool receiving = msgJson["receiving"];
+                const bool wantToSending = msgJson["wantToSending"];
+                const bool wantToReceiving = msgJson["wantToReceiving"];
 
-                if (peers[peerId].sending && !receiving)
+                // To send: I want to send AND peer wants to receive
+                if (peers[peerId].wantToSending && wantToReceiving && !sending)
                 {
-                    // TODO: 송신 중단
+                    // TODO: Start sending to peer
                 }
 
-                if (peers[peerId].receiving && !sending)
+                if (!peers[peerId].wantToSending && sending)
                 {
-                    // TODO: 수신 중단
+                    // TODO: Stop sending (I don't want to send)
+                }
+
+                // To receive: peer wants to send AND I want to receive
+                if (wantToSending && peers[peerId].wantToReceiving && !receiving)
+                {
+                    // TODO: Start receiving from peer
+                }
+
+                if (!peers[peerId].wantToReceiving && receiving)
+                {
+                    // TODO: Stop receiving (I don't want to receive)
                 }
             }
         }
-        catch (json::parse_error &e) 
+        catch (json::parse_error &e)
         {
             // ignore
         }
@@ -170,8 +183,10 @@ void SessionManager::sendPong(const std::string &toId)
     j["to"] = toPeer.id;
     j["sending"] = toPeer.sending;
     j["receiving"] = toPeer.receiving;
+    j["wantToSend"] = toPeer.wantToSending;
+    j["wantToReceive"] = toPeer.wantToReceiving;
 
     std::string message = j.dump();
-    if (sendto(socketFd, message.c_str(), message.size(), 0, (sockaddr*)&addr, sizeof(addr)) < 0)
+    if (sendto(socketFd, message.c_str(), message.size(), 0, (sockaddr *)&addr, sizeof(addr)) < 0)
         std::cerr << "[SessionManager] Failed to send pong message" << std::endl;
 }

@@ -10,6 +10,8 @@ struct Peer
     std::string address;
     bool sending = false;
     bool receiving = false;
+    bool wantToSending = false;
+    bool wantToReceiving = false;
     std::chrono::steady_clock::time_point lastSeen;
 };
 
@@ -21,7 +23,7 @@ public:
 
     void start();
     void stop();
-    
+
 private:
     int port;
     std::string id;
