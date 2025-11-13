@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include "session_manager.hpp"
 #include <nlohmann/json.hpp>
+#include <vector>
 
 using json = nlohmann::json;
 
@@ -47,6 +48,9 @@ void SessionManager::start()
 
     pingThreadRunning = true;
     pingThread = std::make_unique<std::thread>(&SessionManager::pingThreadLoop, this);
+
+    healthCheckThreadRunning = true;
+    healthCheckThread = std::make_unique<std::thread>(&SessionManager::healthCheckThreadLoop, this);
 }
 
 void SessionManager::stop()
@@ -65,6 +69,12 @@ void SessionManager::stop()
         receiveThread.reset();
     }
 
+    healthCheckThreadRunning = false;
+    if (healthCheckThread && healthCheckThread->joinable()) {
+        healthCheckThread->join();
+        healthCheckThread.reset();
+    }
+
     close(socketFd);
 }
 
@@ -80,8 +90,37 @@ void SessionManager::pingThreadLoop()
         std::string message = j.dump();
         if (sendto(socketFd, message.c_str(), message.size(), 0, (sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) < 0)
             std::cerr << "[SessionManager] Failed to send ping" << std::endl;
-
         std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+}
+
+void SessionManager::healthCheckThreadLoop()
+{
+    while (healthCheckThreadRunning)
+    {
+        const auto now = std::chrono::steady_clock::now();
+        const auto timeout = std::chrono::seconds(60);
+        std::vector<std::pair<std::string, Peer>> noneReachableList;
+        {
+            std::scoped_lock lock(peersMutex);
+            for (auto &kv : peers) {
+                // if peer was considered reachable but hasn't been seen within timeout
+                if (kv.second.isReachable && (now - kv.second.lastSeen > timeout)) {
+                    Peer copy = kv.second;
+                    kv.second.sending = false; // TODO: set variable after stoping audio stream by outer logic
+                    kv.second.receiving = false; // TODO: set variable after stoping audio stream by outer logic
+                    kv.second.isReachable = false;
+                    noneReachableList.emplace_back(kv.first, std::move(copy));
+                }
+            }
+        }
+
+        for (auto &pr : noneReachableList) {
+            const auto &peerId = pr.first;
+            if (onConnectionLoss) onConnectionLoss(peerId);
+        }
+
+        std::this_thread::sleep_for(std::chrono::seconds(10));
     }
 }
 
@@ -125,6 +164,7 @@ void SessionManager::receiveThreadLoop()
                     std::scoped_lock lock(peersMutex);
                     peers[peerId].address = senderAddr;
                     peers[peerId].lastSeen = now;
+                    peers[peerId].isReachable = true;
                 }
 
                 sendPong(peerId);
@@ -145,6 +185,7 @@ void SessionManager::receiveThreadLoop()
                     std::scoped_lock lock(peersMutex);
                     peers[peerId].address = senderAddr;
                     peers[peerId].lastSeen = now;
+                    peers[peerId].isReachable = true;
                     toPeerCopy = peers[peerId];
                 }
 
