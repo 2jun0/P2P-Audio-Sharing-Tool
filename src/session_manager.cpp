@@ -107,56 +107,65 @@ void SessionManager::receiveThreadLoop()
 
         try
         {
-            json msgJson = json::parse(msgRow);
+            const json msgJson = json::parse(msgRow);
             // check message
-            if (msgJson.contains("SESSION") && msgJson["SESSION"] != "SESSION")
+            if (!msgJson.contains("SESSION") || msgJson["SESSION"] != "SESSION")
                 continue;
 
-            if (msgJson["type"] == "ping")
-            {
-                const std::string &peerId = msgJson["from"];
+            const std::string msgType = msgJson.value("type", std::string());
+            if (msgType.empty()) continue;
 
-                if (!peers.contains(peerId))
+            if (msgType == "ping")
+            {
+                const std::string peerId = msgJson.value("from", std::string());
+                if (peerId.empty()) continue;
+
+                const auto now = std::chrono::steady_clock::now();
                 {
-                    peers[peerId] = Peer(peerId, senderAddr, false, false, std::chrono::steady_clock::now());
-                }
-                else
-                {
-                    peers[peerId].senderAddr = senderAddr;
-                    peers[peerId].lastSeen = std::chrono::steady_clock::now();
+                    std::scoped_lock lock(peersMutex);
+                    peers[peerId].address = senderAddr;
+                    peers[peerId].lastSeen = now;
                 }
 
                 sendPong(peerId);
             }
-
-            if (msgJson["type"] == "pong")
+            else if (msgType == "pong")
             {
-                const std::string &peerId = msgJson["from"];
-                const bool sending = msgJson["sending"];
-                const bool receiving = msgJson["receiving"];
-                const bool wantToSending = msgJson["wantToSending"];
-                const bool wantToReceiving = msgJson["wantToReceiving"];
+                const std::string peerId = msgJson.value("from", std::string());
+                if (peerId.empty()) continue;
 
-                // To send: I want to send AND peer wants to receive
-                if (peers[peerId].wantToSending && wantToReceiving && !sending)
+                const bool msgSending = msgJson.value("sending", false);
+                const bool msgReceiving = msgJson.value("receiving", false);
+                const bool msgWantToSend = msgJson.value("wantToSend", false);
+                const bool msgWantToReceive = msgJson.value("wantToReceive", false);
+
+                const auto now = std::chrono::steady_clock::now();
+                Peer toPeerCopy;
                 {
-                    // TODO: Start sending to peer
+                    std::scoped_lock lock(peersMutex);
+                    peers[peerId].address = senderAddr;
+                    peers[peerId].lastSeen = now;
+                    toPeerCopy = peers[peerId];
                 }
 
-                if (!peers[peerId].wantToSending && sending)
+                if (toPeerCopy.wantToSend && !msgWantToReceive && toPeerCopy.sending)
                 {
-                    // TODO: Stop sending (I don't want to send)
+                    // TODO: Should stop sending audio
                 }
 
-                // To receive: peer wants to send AND I want to receive
-                if (wantToSending && peers[peerId].wantToReceiving && !receiving)
+                if (toPeerCopy.wantToReceive && !msgWantToSend && toPeerCopy.receiving)
                 {
-                    // TODO: Start receiving from peer
+                    // TODO: Should stop receiving audio
                 }
 
-                if (!peers[peerId].wantToReceiving && receiving)
+                if (!toPeerCopy.sending && (toPeerCopy.wantToSend && msgWantToReceive))
                 {
-                    // TODO: Stop receiving (I don't want to receive)
+                    // TODO: Should send audio
+                }
+
+                if (!toPeerCopy.receiving && (toPeerCopy.wantToReceive && msgWantToSend))
+                {
+                    // TODO: Should receive audio
                 }
             }
         }
@@ -169,22 +178,28 @@ void SessionManager::receiveThreadLoop()
 
 void SessionManager::sendPong(const std::string &toId)
 {
-    const Peer &toPeer = peers[toId];
+    Peer toPeerCopy;
+    {
+        std::shared_lock lock(peersMutex);
+        auto it = peers.find(toId);
+        if (it == peers.end()) return;
+        toPeerCopy = it->second;
+    }
 
     sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_port = port;
-    addr.sin_addr.s_addr = inet_addr(toPeer.address.c_str());
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = inet_addr(toPeerCopy.address.c_str());
 
     json j;
     j["SESSION"] = "SESSION"; // for check if message is from this program.
     j["type"] = "pong";
     j["from"] = id;
-    j["to"] = toPeer.id;
-    j["sending"] = toPeer.sending;
-    j["receiving"] = toPeer.receiving;
-    j["wantToSend"] = toPeer.wantToSending;
-    j["wantToReceive"] = toPeer.wantToReceiving;
+    j["to"] = toPeerCopy.id;
+    j["sending"] = toPeerCopy.sending;
+    j["receiving"] = toPeerCopy.receiving;
+    j["wantToSend"] = toPeerCopy.wantToSend;
+    j["wantToReceive"] = toPeerCopy.wantToReceive;
 
     std::string message = j.dump();
     if (sendto(socketFd, message.c_str(), message.size(), 0, (sockaddr *)&addr, sizeof(addr)) < 0)

@@ -3,6 +3,7 @@
 #include <string>
 #include <memory>
 #include <chrono>
+#include <shared_mutex>
 
 struct Peer
 {
@@ -10,8 +11,8 @@ struct Peer
     std::string address;
     bool sending = false;
     bool receiving = false;
-    bool wantToSending = false;
-    bool wantToReceiving = false;
+    bool wantToSend = false;
+    bool wantToReceive = false;
     std::chrono::steady_clock::time_point lastSeen;
 };
 
@@ -38,6 +39,7 @@ private:
     bool receiveThreadRunning = false;
 
     std::unordered_map<std::string, Peer> peers; // id, Peer
+    std::shared_mutex peersMutex;
 
     void initBroadcastSocket();
     void pingThreadLoop();
