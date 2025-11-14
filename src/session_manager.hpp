@@ -5,15 +5,17 @@
 #include <chrono>
 #include <shared_mutex>
 #include <functional>
+#include <atomic>
 
 struct Peer
 {
     std::string id;
     std::string address;
-    bool sending = false;
-    bool receiving = false;
-    bool wantToSend = false;
-    bool wantToReceive = false;
+    // I'm sending / receiving / want to ~~~ to this peer
+    bool sendingTo = false;
+    bool receivingFrom = false;
+    bool wantToSendTo = false;
+    bool wantToReceiveFrom = false;
     bool isReachable = false;
     std::chrono::steady_clock::time_point lastSeen;
 };
@@ -26,8 +28,22 @@ public:
 
     void start();
     void stop();
-    // callback for connection loss (called when peer not seen for timeout)
+    
+    // User-triggered state changes (intent)
+    // Sets wantToSendTo for a peer and broadcasts to notify them
+    void setWantToSendTo(const std::string& peerId, bool want);
+    // Sets wantToReceiveFrom for a peer and broadcasts to notify them
+    void setWantToReceiveFrom(const std::string& peerId, bool want);
+    
+    // External stop trigger (e.g., gstreamer timeout on receiver side)
+    // Stops receiving from peer without waiting for peer message
+    void stopReceivingFrom(const std::string& peerId);
+    
+    // Callbacks for state updates
     void setOnConnectionLoss(std::function<void(const std::string&)> cb) { onConnectionLoss = std::move(cb); }
+    // callback for sendingTo/receivingFrom state updates per-peer: (peerId, newState)
+    void setOnSendingStateUpdate(std::function<void(const std::string&, bool)> cb) { onSendingStateUpdate = std::move(cb); }
+    void setOnReceivingStateUpdate(std::function<void(const std::string&, bool)> cb) { onReceivingStateUpdate = std::move(cb); }
 
 private:
     int port;
@@ -37,21 +53,25 @@ private:
     sockaddr_in broadcastAddr{};
     sockaddr_in localAddr{};
     std::function<void(const std::string&)> onConnectionLoss;
+    // callbacks for localSending/localReceiving state updates per-peer: (peerId, newState)
+    std::function<void(const std::string&, bool)> onSendingStateUpdate;
+    std::function<void(const std::string&, bool)> onReceivingStateUpdate;
 
     std::unique_ptr<std::thread> healthCheckThread;
-    bool healthCheckThreadRunning = false;
+    std::atomic<bool> healthCheckThreadRunning{false};
 
     std::unique_ptr<std::thread> pingThread;
     std::unique_ptr<std::thread> receiveThread;
-    bool pingThreadRunning = false;
-    bool receiveThreadRunning = false;
+    std::atomic<bool> pingThreadRunning{false};
+    std::atomic<bool> receiveThreadRunning{false};
 
     std::unordered_map<std::string, Peer> peers; // id, Peer
     std::shared_mutex peersMutex;
 
-    void initBroadcastSocket();
+    void initSocket();
     void pingThreadLoop();
     void receiveThreadLoop();
     void healthCheckThreadLoop();
     void sendPong(const std::string &id);
+
 };
