@@ -191,6 +191,7 @@ void SessionManager::receiveThreadLoop()
                 const std::string peerId = msgJson.value("from", std::string());
                 if (peerId.empty()) continue;
 
+                const int msgPort = msgJson.value("port", 0);
                 const bool msgSending = msgJson.value("sending", false);
                 const bool msgReceiving = msgJson.value("receiving", false);
                 const bool msgWantToSend = msgJson.value("wantToSend", false);
@@ -248,6 +249,7 @@ void SessionManager::sendPong(const std::string &toId)
     j["type"] = "pong";
     j["from"] = id;
     j["to"] = toPeerCopy.id;
+    j["port"] = toPeerCopy.port;
     j["sending"] = toPeerCopy.sendingTo;
     j["receiving"] = toPeerCopy.receivingFrom;
     j["wantToSend"] = toPeerCopy.wantToSendTo;
@@ -263,12 +265,10 @@ void SessionManager::setWantToSendTo(const std::string& peerId, bool want)
     {
         std::scoped_lock lock(peersMutex);
         auto it = peers.find(peerId);
-        if (it == peers.end())
-            return; // peer not yet discovered
+        if (it == peers.end()) return;
         it->second.wantToSendTo = want;
     }
     
-    // Notify peer of our new intent
     sendPong(peerId);
 }
 
@@ -277,25 +277,34 @@ void SessionManager::setWantToReceiveFrom(const std::string& peerId, bool want)
     {
         std::scoped_lock lock(peersMutex);
         auto it = peers.find(peerId);
-        if (it == peers.end())
-            return; // peer not yet discovered
+        if (it == peers.end()) return;
         it->second.wantToReceiveFrom = want;
     }
     
-    // Notify peer of our new intent
     sendPong(peerId);
 }
 
-void SessionManager::stopReceivingFrom(const std::string& peerId)
+void SessionManager::updateSendingState(const std::string &peerId, bool sending, int port)
 {
     {
         std::scoped_lock lock(peersMutex);
         auto it = peers.find(peerId);
-        if (it == peers.end())
-            return; // peer not yet discovered
-        it->second.receivingFrom = false;
+        if (it == peers.end()) return;
+        it->second.sendingTo = sending;
+        it->second.port = port;
     }
-    
-    // Notify peer that we're no longer receiving
+
+    sendPong(peerId);
+}
+
+void SessionManager::updateReceivingState(const std::string &peerId, bool receiving)
+{
+    {
+        std::scoped_lock lock(peersMutex);
+        auto it = peers.find(peerId);
+        if (it == peers.end()) return;
+        it->second.receivingFrom = receiving;
+    }
+
     sendPong(peerId);
 }

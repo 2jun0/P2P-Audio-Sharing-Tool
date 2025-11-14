@@ -11,6 +11,7 @@ struct Peer
 {
     std::string id;
     std::string address;
+    int port;
     // I'm sending / receiving / want to ~~~ to this peer
     bool sendingTo = false;
     bool receivingFrom = false;
@@ -29,21 +30,23 @@ public:
     void start();
     void stop();
     
-    // User-triggered state changes (intent)
-    // Sets wantToSendTo for a peer and broadcasts to notify them
+    // User-triggered state changes
     void setWantToSendTo(const std::string& peerId, bool want);
-    // Sets wantToReceiveFrom for a peer and broadcasts to notify them
     void setWantToReceiveFrom(const std::string& peerId, bool want);
     
-    // External stop trigger (e.g., gstreamer timeout on receiver side)
+    // External trigger (e.g., sender, receiver)
     // Stops receiving from peer without waiting for peer message
     void stopReceivingFrom(const std::string& peerId);
+    // Update port used for sending to peer
+    void updateSendingPort(const std::string &peerId, int port);
     
     // Callbacks for state updates
     void setOnConnectionLoss(std::function<void(const std::string&)> cb) { onConnectionLoss = std::move(cb); }
     // callback for sendingTo/receivingFrom state updates per-peer: (peerId, newState)
     void setOnSendingStateUpdate(std::function<void(const std::string&, bool)> cb) { onSendingStateUpdate = std::move(cb); }
     void setOnReceivingStateUpdate(std::function<void(const std::string&, bool)> cb) { onReceivingStateUpdate = std::move(cb); }
+
+    std::string getId() const { return id; }
 
 private:
     int port;
