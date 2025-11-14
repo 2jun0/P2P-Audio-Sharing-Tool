@@ -7,15 +7,17 @@
 class AudioSender
 {
 public:
-    AudioSender(const std::string &host, int port);
+    AudioSender(const std::string &host);
     ~AudioSender();
 
     void start();
     void stop();
+    
+    int getPort() const { return port; } // Get the actual sending port after starting
 
 private:
     std::string host;
-    int port;
+    int port = -1;
 
     GstElement *pipeline = nullptr;
     bool started = false;
