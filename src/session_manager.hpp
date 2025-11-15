@@ -1,3 +1,6 @@
+﻿#ifndef session_manager_hpp
+#define session_manager_hpp
+
 #include <unordered_map>
 #include <thread>
 #include <string>
@@ -22,6 +25,8 @@ struct Peer
     std::string id;
     std::string address;
     // I'm sending / receiving / want to ~~~ to this peer
+    int sendPortTo = -1;
+    int receivePortFrom = -1;
     bool sendingTo = false;
     bool receivingFrom = false;
     bool wantToSendTo = false;
@@ -39,21 +44,19 @@ public:
     void start();
     void stop();
 
-    // User-triggered state changes (intent)
-    // Sets wantToSendTo for a peer and broadcasts to notify them
+    // User-triggered state changes
     void setWantToSendTo(const std::string &peerId, bool want);
-    // Sets wantToReceiveFrom for a peer and broadcasts to notify them
     void setWantToReceiveFrom(const std::string &peerId, bool want);
 
-    // External stop trigger (e.g., gstreamer timeout on receiver side)
-    // Stops receiving from peer without waiting for peer message
-    void stopReceivingFrom(const std::string &peerId);
+    // Sender / Receiver triggered state changes
+    void updateSendingState(const std::string &peerId, bool sending);
+    void updateReceivingState(const std::string &peerId, bool receiving, int port);
 
-    // Callbacks for state updates
-    void setOnConnectionLoss(std::function<void(const std::string &)> cb) { onConnectionLoss = std::move(cb); }
-    // callback for sendingTo/receivingFrom state updates per-peer: (peerId, newState)
-    void setOnSendingStateUpdate(std::function<void(const std::string &, bool)> cb) { onSendingStateUpdate = std::move(cb); }
-    void setOnReceivingStateUpdate(std::function<void(const std::string &, bool)> cb) { onReceivingStateUpdate = std::move(cb); }
+    // Callback for trigger Sender or Receiver
+    void setOnSendRequest(std::function<void(const std::string &, bool, const std::string &, int)> cb) { onSendRequest = std::move(cb); }
+    void setOnReceiveRequest(std::function<void(const std::string &, bool, const std::string &)> cb) { onReceiveRequest = std::move(cb); }
+
+    std::string getId() const { return id; }
 
 private:
     int port;
@@ -62,10 +65,9 @@ private:
     int socketFd;
     sockaddr_in broadcastAddr{};
     sockaddr_in localAddr{};
-    std::function<void(const std::string &)> onConnectionLoss;
-    // callbacks for localSending/localReceiving state updates per-peer: (peerId, newState)
-    std::function<void(const std::string &, bool)> onSendingStateUpdate;
-    std::function<void(const std::string &, bool)> onReceivingStateUpdate;
+    // callbacks for sending/receiving state updates per-peer: (peerId, newState)
+    std::function<void(const std::string &, bool, const std::string &, int)> onSendRequest;
+    std::function<void(const std::string &, bool, const std::string &)> onReceiveRequest;
 
     std::unique_ptr<std::thread> healthCheckThread;
     std::atomic<bool> healthCheckThreadRunning{false};
@@ -84,3 +86,5 @@ private:
     void healthCheckThreadLoop();
     void sendPong(const std::string &id);
 };
+
+#endif // session_manager_hpp

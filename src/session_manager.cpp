@@ -121,8 +121,6 @@ void SessionManager::healthCheckThreadLoop()
                 if (kv.second.isReachable && (now - kv.second.lastSeen > timeout))
                 {
                     Peer copy = kv.second;
-                    kv.second.sendingTo = false;
-                    kv.second.receivingFrom = false;
                     kv.second.isReachable = false;
                     noneReachableList.emplace_back(kv.first, std::move(copy));
                 }
@@ -132,12 +130,11 @@ void SessionManager::healthCheckThreadLoop()
         for (auto &pr : noneReachableList)
         {
             const auto &peerId = pr.first;
-            if (onReceivingStateUpdate)
-                onReceivingStateUpdate(peerId, false);
-            if (onSendingStateUpdate)
-                onSendingStateUpdate(peerId, false);
-            if (onConnectionLoss)
-                onConnectionLoss(peerId);
+            const auto &peer = pr.second;
+            if (onReceiveRequest)
+                onReceiveRequest(peerId, false, peer.address);
+            if (onSendRequest)
+                onSendRequest(peerId, false, peer.address, peer.sendPortTo);
         }
 
         std::this_thread::sleep_for(std::chrono::seconds(10));
@@ -155,9 +152,19 @@ void SessionManager::receiveThreadLoop()
         int bytes = recvfrom(socketFd, buffer, sizeof(buffer) - 1, 0, (sockaddr *)&sockAddr, &addrLen);
         if (bytes < 0)
         {
+            bool shouldContinue = false;
+#ifdef _WIN32
+            int err = WSAGetLastError();
+            // timeout or interrupted, just continue
+            if (err == WSAEWOULDBLOCK || err == WSAEINTR)
+                shouldContinue = true;
+#else
             int err = errno;
             // timeout or interrupted, just continue
             if (err == EAGAIN || err == EWOULDBLOCK || err == EINTR)
+                shouldContinue = true;
+#endif
+            if (shouldContinue)
                 continue;
 
             // non-recoverable error
@@ -182,12 +189,12 @@ void SessionManager::receiveThreadLoop()
             if (msgType.empty())
                 continue;
 
+            const std::string peerId = msgJson.value("from", std::string());
+            if (peerId.empty() || peerId == id)
+                continue;
+
             if (msgType == "ping")
             {
-                const std::string peerId = msgJson.value("from", std::string());
-                if (peerId.empty())
-                    continue;
-
                 const auto now = std::chrono::steady_clock::now();
                 {
                     std::scoped_lock lock(peersMutex);
@@ -201,38 +208,31 @@ void SessionManager::receiveThreadLoop()
             }
             else if (msgType == "pong")
             {
-                const std::string peerId = msgJson.value("from", std::string());
-                if (peerId.empty())
-                    continue;
-
+                const int msgReceivePort = msgJson.value("receivePort", -1);
                 const bool msgSending = msgJson.value("sending", false);
                 const bool msgReceiving = msgJson.value("receiving", false);
                 const bool msgWantToSend = msgJson.value("wantToSend", false);
                 const bool msgWantToReceive = msgJson.value("wantToReceive", false);
 
                 const auto now = std::chrono::steady_clock::now();
-                bool desiredSending, desiredReceiving;
-                Peer toPeerCopy;
+                Peer peerCopy;
                 {
                     std::scoped_lock lock(peersMutex);
                     peers[peerId].id = peerId;
                     peers[peerId].address = senderAddr;
+                    peers[peerId].sendPortTo = msgReceivePort;
                     peers[peerId].lastSeen = now;
                     peers[peerId].isReachable = true;
-
-                    toPeerCopy = peers[peerId];
-                    desiredSending = toPeerCopy.wantToSendTo && msgWantToReceive;
-                    desiredReceiving = toPeerCopy.wantToReceiveFrom && msgWantToSend;
-                    if (toPeerCopy.sendingTo != desiredSending)
-                        peers[peerId].sendingTo = desiredSending;
-                    if (toPeerCopy.receivingFrom != desiredReceiving)
-                        peers[peerId].receivingFrom = desiredReceiving;
+                    peerCopy = peers[peerId];
                 }
 
-                if (toPeerCopy.sendingTo != desiredSending && onSendingStateUpdate)
-                    onSendingStateUpdate(peerId, desiredSending);
-                if (toPeerCopy.receivingFrom != desiredReceiving && onReceivingStateUpdate)
-                    onReceivingStateUpdate(peerId, desiredReceiving);
+                bool shouldSend = peerCopy.wantToSendTo && msgWantToReceive && peerCopy.sendPortTo > 0;
+                bool shouldReceive = peerCopy.wantToReceiveFrom && msgWantToSend;
+
+                if (peerCopy.sendingTo != shouldSend && onSendRequest)
+                    onSendRequest(peerId, shouldSend, peerCopy.address, peerCopy.sendPortTo);
+                if (peerCopy.receivingFrom != shouldReceive && onReceiveRequest)
+                    onReceiveRequest(peerId, shouldReceive, peerCopy.address);
             }
         }
         catch (json::parse_error &e)
@@ -244,29 +244,30 @@ void SessionManager::receiveThreadLoop()
 
 void SessionManager::sendPong(const std::string &toId)
 {
-    Peer toPeerCopy;
+    Peer peerCopy;
     {
         std::shared_lock lock(peersMutex);
         auto it = peers.find(toId);
         if (it == peers.end())
             return;
-        toPeerCopy = it->second;
+        peerCopy = it->second;
     }
 
     sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = inet_addr(toPeerCopy.address.c_str());
+    addr.sin_addr.s_addr = inet_addr(peerCopy.address.c_str());
 
     json j;
     j["SESSION"] = "SESSION"; // for check if message is from this program.
     j["type"] = "pong";
     j["from"] = id;
-    j["to"] = toPeerCopy.id;
-    j["sending"] = toPeerCopy.sendingTo;
-    j["receiving"] = toPeerCopy.receivingFrom;
-    j["wantToSend"] = toPeerCopy.wantToSendTo;
-    j["wantToReceive"] = toPeerCopy.wantToReceiveFrom;
+    j["to"] = peerCopy.id;
+    j["receivePort"] = peerCopy.receivePortFrom;
+    j["sending"] = peerCopy.sendingTo;
+    j["receiving"] = peerCopy.receivingFrom;
+    j["wantToSend"] = peerCopy.wantToSendTo;
+    j["wantToReceive"] = peerCopy.wantToReceiveFrom;
 
     std::string message = j.dump();
     if (sendto(socketFd, message.c_str(), message.size(), 0, (sockaddr *)&addr, sizeof(addr)) < 0)
@@ -279,11 +280,10 @@ void SessionManager::setWantToSendTo(const std::string &peerId, bool want)
         std::scoped_lock lock(peersMutex);
         auto it = peers.find(peerId);
         if (it == peers.end())
-            return; // peer not yet discovered
+            return;
         it->second.wantToSendTo = want;
     }
 
-    // Notify peer of our new intent
     sendPong(peerId);
 }
 
@@ -293,24 +293,36 @@ void SessionManager::setWantToReceiveFrom(const std::string &peerId, bool want)
         std::scoped_lock lock(peersMutex);
         auto it = peers.find(peerId);
         if (it == peers.end())
-            return; // peer not yet discovered
+            return;
         it->second.wantToReceiveFrom = want;
     }
 
-    // Notify peer of our new intent
     sendPong(peerId);
 }
 
-void SessionManager::stopReceivingFrom(const std::string &peerId)
+void SessionManager::updateSendingState(const std::string &peerId, bool sending)
 {
     {
         std::scoped_lock lock(peersMutex);
         auto it = peers.find(peerId);
         if (it == peers.end())
-            return; // peer not yet discovered
-        it->second.receivingFrom = false;
+            return;
+        it->second.sendingTo = sending;
     }
 
-    // Notify peer that we're no longer receiving
+    sendPong(peerId);
+}
+
+void SessionManager::updateReceivingState(const std::string &peerId, bool receiving, int port)
+{
+    {
+        std::scoped_lock lock(peersMutex);
+        auto it = peers.find(peerId);
+        if (it == peers.end())
+            return;
+        it->second.receivingFrom = receiving;
+        it->second.receivePortFrom = receiving ? port : -1;
+    }
+
     sendPong(peerId);
 }
