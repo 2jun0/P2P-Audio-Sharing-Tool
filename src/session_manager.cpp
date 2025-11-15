@@ -1,4 +1,7 @@
 #include "session_manager.hpp"
+#ifdef _WIN32
+#include "winsock_guard.hpp"
+#endif
 #include <nlohmann/json.hpp>
 #include <vector>
 #include <cerrno>
@@ -17,6 +20,9 @@ SessionManager::~SessionManager()
 
 void SessionManager::initSocket()
 {
+#ifdef _WIN32
+    ensureWinsock();
+#endif
     socketFd = socket(AF_INET, SOCK_DGRAM, 0);
     if (socketFd < 0)
         throw std::runtime_error("Failed to create broadcast socket");
@@ -152,23 +158,21 @@ void SessionManager::receiveThreadLoop()
         int bytes = recvfrom(socketFd, buffer, sizeof(buffer) - 1, 0, (sockaddr *)&sockAddr, &addrLen);
         if (bytes < 0)
         {
-            bool shouldContinue = false;
 #ifdef _WIN32
             int err = WSAGetLastError();
             // timeout or interrupted, just continue
-            if (err == WSAEWOULDBLOCK || err == WSAEINTR)
-                shouldContinue = true;
+            if (err == WSAEWOULDBLOCK || err == WSAEINTR || err == WSAETIMEDOUT)
+                continue;
 #else
             int err = errno;
             // timeout or interrupted, just continue
             if (err == EAGAIN || err == EWOULDBLOCK || err == EINTR)
-                shouldContinue = true;
-#endif
-            if (shouldContinue)
                 continue;
+#endif
 
             // non-recoverable error
             std::cerr << "[SessionManager] Failed to receive message: " << strerror(err) << std::endl;
+            // TODO: stop all threads
             break;
         }
 
