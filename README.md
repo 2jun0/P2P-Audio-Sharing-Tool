@@ -28,6 +28,25 @@ brew install gst-plugins-base gst-plugins-good
 gst-launch-1.0 --version
 ```
 
+## Signaling flow
+
+```mermaid
+sequenceDiagram
+    participant PeerA as Peer A
+    participant PeerB as Peer B
+
+    Note over PeerA,PeerB: Ping to check presence
+    PeerA<<-->>PeerB: Ping ("Are you there?")
+
+    Note over PeerA,PeerB: Pong to share intents and states
+    PeerA->>PeerB: Pong ("I want to send")
+    PeerB->>PeerA: Pong ("I want to receive")
+
+    Note over PeerA,PeerB: Both agree, start audio transmission
+    PeerB->>PeerA: Open RTP port (ready to receive)
+    PeerA->>PeerB: Start sending audio via RTP
+```
+
 ## Third-party libraries
 
 This project uses the following third-party libraries:
