@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <chrono>
+#include <vector>
 #include <shared_mutex>
 #include <functional>
 #include <atomic>
@@ -43,6 +44,8 @@ public:
 
     void start();
     void stop();
+
+    std::vector<std::string> getPeerIds();
 
     // User-triggered state changes
     void setWantToSendTo(const std::string &peerId, bool want);

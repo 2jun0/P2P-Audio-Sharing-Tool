@@ -5,6 +5,7 @@
 #include <memory>
 #include <unordered_map>
 #include <shared_mutex>
+#include <vector>
 #include "audio_sender.hpp"
 #include "audio_receiver.hpp"
 #include "session_manager.hpp"
@@ -23,6 +24,7 @@ public:
     void stopSendingTo(const std::string &peerId);
     void startReceivingFrom(const std::string &peerId);
     void stopReceivingFrom(const std::string &peerId);
+    std::vector<std::string> getPeerIds() const { return sessionMgr->getPeerIds(); }
 
 private:
     int port;

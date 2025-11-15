@@ -96,6 +96,15 @@ void SessionManager::stop()
     close(socketFd);
 }
 
+std::vector<std::string> SessionManager::getPeerIds()
+{
+    std::vector<std::string> ids;
+    std::shared_lock lock(peersMutex);
+    for (const auto &kv : peers)
+        ids.push_back(kv.first);
+    return ids;
+}
+
 void SessionManager::pingThreadLoop()
 {
     while (pingThreadRunning)
