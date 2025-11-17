@@ -1,7 +1,5 @@
 #include "session_manager.hpp"
-#ifdef _WIN32
-#include "winsock_guard.hpp"
-#endif
+#include "udp_socket.hpp"
 #include <nlohmann/json.hpp>
 #include <vector>
 #include <cerrno>
@@ -9,7 +7,7 @@
 
 using json = nlohmann::json;
 
-SessionManager::SessionManager(int port, const std::string &id) : port(port), id(id), socketFd(-1)
+SessionManager::SessionManager(int port, const std::string &id) : port(port), id(id)
 {
 }
 
@@ -20,40 +18,9 @@ SessionManager::~SessionManager()
 
 void SessionManager::initSocket()
 {
-#ifdef _WIN32
-    ensureWinsock();
-#endif
-    socketFd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socketFd < 0)
-        throw std::runtime_error("Failed to create broadcast socket");
-
-    int broadcastEnable = 1;
-#ifdef _WIN32
-    int rs = setsockopt(socketFd, SOL_SOCKET, SO_BROADCAST, (char *)&broadcastEnable, sizeof(broadcastEnable));
-#else
-    int rs = setsockopt(socketFd, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
-#endif
-    if (rs < 0)
-    {
-        close(socketFd);
-        throw std::runtime_error("Failed to set broadcast socket option (setsockopt)");
-    }
-
-    broadcastAddr.sin_family = AF_INET;
-    broadcastAddr.sin_port = htons(port);
-    broadcastAddr.sin_addr.s_addr = inet_addr("255.255.255.255");
-
-    localAddr.sin_family = AF_INET;
-    localAddr.sin_port = htons(port);
-    localAddr.sin_addr.s_addr = INADDR_ANY;
-    if (bind(socketFd, (sockaddr *)&localAddr, sizeof(localAddr)) < 0)
-        throw std::runtime_error("Failed to bind local address");
-
-    // set recv timeout so recvfrom won't block indefinitely (helps stop())
-    struct timeval tv;
-    tv.tv_sec = 1; // 1 second
-    tv.tv_usec = 0;
-    setsockopt(socketFd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(tv));
+    udp = std::make_unique<UdpSocket>();
+    udp->openBroadcast(port);
+    udp->setRecvTimeout(std::chrono::milliseconds(1000));
 }
 
 void SessionManager::start()
@@ -93,7 +60,10 @@ void SessionManager::stop()
         healthCheckThread.reset();
     }
 
-    close(socketFd);
+    if (udp) {
+        udp->close();
+        udp.reset();
+    }
 }
 
 std::vector<std::string> SessionManager::getPeerIds()
@@ -115,7 +85,7 @@ void SessionManager::pingThreadLoop()
         j["from"] = id;
 
         std::string message = j.dump();
-        if (sendto(socketFd, message.c_str(), message.size(), 0, (sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) < 0)
+        if (!udp->sendTo("255.255.255.255", port, message.c_str(), message.size()))
             std::cerr << "[SessionManager] Failed to send ping" << std::endl;
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
@@ -159,25 +129,17 @@ void SessionManager::healthCheckThreadLoop()
 void SessionManager::receiveThreadLoop()
 {
     char buffer[2048];
-    sockaddr_in sockAddr{};
 
     while (receiveThreadRunning)
     {
-        socklen_t addrLen = sizeof(sockAddr);
-        int bytes = recvfrom(socketFd, buffer, sizeof(buffer) - 1, 0, (sockaddr *)&sockAddr, &addrLen);
+        int err = 0;
+        std::string senderAddr;
+        int bytes = udp->recvFrom(buffer, sizeof(buffer) - 1, senderAddr, err);
         if (bytes < 0)
         {
-#ifdef _WIN32
-            int err = WSAGetLastError();
-            // timeout or interrupted, just continue
-            if (err == WSAEWOULDBLOCK || err == WSAEINTR || err == WSAETIMEDOUT)
-                continue;
-#else
-            int err = errno;
             // timeout or interrupted, just continue
             if (err == EAGAIN || err == EWOULDBLOCK || err == EINTR)
                 continue;
-#endif
 
             // non-recoverable error
             std::cerr << "[SessionManager] Failed to receive message: " << strerror(err) << std::endl;
@@ -187,9 +149,6 @@ void SessionManager::receiveThreadLoop()
 
         buffer[bytes] = '\0';
         std::string msgRow(buffer);
-        char addrBuf[INET_ADDRSTRLEN] = {0};
-        const char *addrPtr = inet_ntop(AF_INET, &sockAddr.sin_addr, addrBuf, sizeof(addrBuf));
-        std::string senderAddr = addrPtr ? std::string(addrBuf) : std::string();
 
         try
         {
@@ -266,11 +225,6 @@ void SessionManager::sendPong(const std::string &toId)
         peerCopy = it->second;
     }
 
-    sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = inet_addr(peerCopy.address.c_str());
-
     json j;
     j["SESSION"] = "SESSION"; // for check if message is from this program.
     j["type"] = "pong";
@@ -283,7 +237,7 @@ void SessionManager::sendPong(const std::string &toId)
     j["wantToReceive"] = peerCopy.wantToReceiveFrom;
 
     std::string message = j.dump();
-    if (sendto(socketFd, message.c_str(), message.size(), 0, (sockaddr *)&addr, sizeof(addr)) < 0)
+    if (!udp->sendTo(peerCopy.address, port, message.c_str(), message.size()))
         std::cerr << "[SessionManager] Failed to send pong message" << std::endl;
 }
 

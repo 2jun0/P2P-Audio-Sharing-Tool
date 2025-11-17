@@ -10,16 +10,7 @@
 #include <shared_mutex>
 #include <functional>
 #include <atomic>
-
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#define close closesocket
-#pragma comment(lib, "ws2_32.lib")
-#else
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#endif
+#include "udp_socket.hpp"
 
 struct Peer
 {
@@ -65,9 +56,7 @@ private:
     int port;
     std::string id;
 
-    int socketFd;
-    sockaddr_in broadcastAddr{};
-    sockaddr_in localAddr{};
+    std::unique_ptr<UdpSocket> udp;
     // callbacks for sending/receiving state updates per-peer: (peerId, newState)
     std::function<void(const std::string &, bool, const std::string &, int)> onSendRequest;
     std::function<void(const std::string &, bool, const std::string &)> onReceiveRequest;
