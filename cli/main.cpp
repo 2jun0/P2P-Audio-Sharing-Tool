@@ -9,7 +9,7 @@
 int main(int argc, char *argv[])
 {
     int port = 6000; // default discovery/audio port
-    std::string sessionId;
+    std::string peerId;
 
     if (argc > 1)
     {
@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    auto makeSessionId = []()
+    auto makePeerId = []()
     {
         static constexpr char alphabet[] = "0123456789abcdef";
         std::string id(6, '0');
@@ -36,21 +36,21 @@ int main(int argc, char *argv[])
         return id;
     };
 
-    sessionId = (argc > 2) ? argv[2] : makeSessionId();
+    peerId = (argc > 2) ? argv[2] : makePeerId();
 
     if (argc <= 1)
     {
-        std::cout << "Usage: " << argv[0] << " [port] [sessionId]" << std::endl;
+        std::cout << "Usage: " << argv[0] << " [port] [peerId]" << std::endl;
         std::cout << "  port: local port for session discovery/audio (default: 6000)" << std::endl;
-        std::cout << "  sessionId: 6-char hex id (default: random)" << std::endl;
+        std::cout << "  peerId: 6-char hex id (default: random)" << std::endl;
         std::cout << std::endl;
     }
 
     try
     {
-        AudioStreamer streamer(port, sessionId);
+        AudioStreamer streamer(port, peerId);
         std::cout << "[Main] Starting AudioStreamer on port " << port
-                  << " with ID: " << sessionId << std::endl;
+                  << " with ID: " << peerId << std::endl;
         streamer.start();
 
         // Interactive mode: commands for testing
