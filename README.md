@@ -1,5 +1,7 @@
 # P2P Audio Sharing Tool
 
+[한국어](./README-kr.md)
+
 ## Introduction
 
 A minimal peer-to-peer audio streaming tool for local networks. Peers discover each other via broadcast ping/pong; when both sides agree to send/receive, an RTP (Opus) stream is started automatically.
