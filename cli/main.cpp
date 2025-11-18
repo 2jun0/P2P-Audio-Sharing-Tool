@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 
         // Interactive mode: commands for testing
         std::cout << "\n=== Commands ===\n"
-                  << "send <peerId> <peerHost>  - Start sending to peer\n"
+                  << "send <peerId>             - Start sending to peer\n"
                   << "recv <peerId>             - Start receiving from peer\n"
                   << "stop-send <peerId>        - Stop sending to peer\n"
                   << "stop-recv <peerId>        - Stop receiving from peer\n"
@@ -71,19 +71,18 @@ int main(int argc, char *argv[])
 
             // Simple command parsing
             std::istringstream iss(command);
-            std::string cmd, peerId, peerHost;
+            std::string cmd, peerId;
 
-            iss >> cmd >> peerId >> peerHost;
+            iss >> cmd >> peerId;
 
             if (cmd == "send")
             {
-                if (peerId.empty() || peerHost.empty())
+                if (peerId.empty())
                 {
-                    std::cerr << "Usage: send <peerId> <peerHost>" << std::endl;
+                    std::cerr << "Usage: send <peerId>" << std::endl;
                     continue;
                 }
-                std::cout << "[Main] Requesting to send to peer: " << peerId
-                          << " (" << peerHost << ")" << std::endl;
+                std::cout << "[Main] Requesting to send to peer: " << peerId << std::endl;
                 streamer.startSendingTo(peerId);
             }
             else if (cmd == "recv")
