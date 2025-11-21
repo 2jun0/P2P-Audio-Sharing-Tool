@@ -10,6 +10,26 @@ file(GLOB_RECURSE SOURCES
 )
 add_executable(Audio ${SOURCES})
 
+if(APPLE)
+    enable_language(OBJCXX)
+    enable_language(Swift)
+
+    file(GLOB_RECURSE MACOS_SOURCES 
+        src/macos/*.mm
+        src/macos/*.cpp
+        src/macos/*.swift
+    )
+
+    target_sources(Audio PRIVATE ${MACOS_SOURCES})
+    set_target_properties(Audio PROPERTIES Swift_LANGUAGE_VERSION "5")
+
+    target_link_libraries(Audio
+        PRIVATE
+            "-framework CoreAudio"
+            "-framework CoreFoundation"
+        )
+endif()
+
 if(WIN32)
     target_link_libraries(Audio PRIVATE ws2_32)
 endif()

@@ -43,9 +43,9 @@ sequenceDiagram
 2. Configure and build:
   ```bash
   mkdir build
-  cd build
-  cmake -DCMAKE_BUILD_TYPE=Release ..
-  cmake --build . --config Release
+  cmake -S . -B build -G Xcode
+  cmake -DCMAKE_BUILD_TYPE=Release .
+  cmake --build build --config Release
   ```
 
 ### Windows (MSVC)
@@ -57,9 +57,8 @@ sequenceDiagram
 3. Run CMake from an MSVC command prompt and build
   ```powershell
   mkdir build
-  cd build
-  cmake -DCMAKE_BUILD_TYPE=Release ..
-  cmake --build . --config Release
+  cmake -DCMAKE_BUILD_TYPE=Release .
+  cmake --build build --config Release
   ```
 
 ## Third-party libraries
