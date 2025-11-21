@@ -2,6 +2,10 @@
 #include <cassert>
 #include "audio_sender.hpp"
 
+#if defined(__APPLE__)
+#include "macos/ensure_loopback_bridge.hpp"
+#endif
+
 AudioSender::AudioSender(const std::string &host, int port)
     : host(host), port(port)
 {
@@ -21,8 +25,24 @@ AudioSender::~AudioSender()
 
 void AudioSender::initPipeline()
 {
-    std::string pipelineDesc = "wasapisrc loopback=true ! audioconvert ! audioresample ! opusenc ! rtpopuspay ! udpsink host=" + host + " port=" + std::to_string(port);
+
+#if defined(_WIN32)
+    // WASAPI loopback
+    std::string pipelineDesc = "wasapisrc loopback=true";
+#elif defined(__APPLE__)
+    // Loopback aggregate device
+    const std::string loopbackUID = "com.2jun0.audiosharingtool.loopback";
+    const std::string loopbackName = "Audio Sharing Tool Loopback";
+    if (!ensureMacosLoopbackDevice(loopbackUID, loopbackName))
+        throw std::runtime_error("Not supported on this device");
+
+    std::string pipelineDesc = "osxaudiosrc device=" + loopbackUID;
+#else
+    throw std::runtime_error("Not supported on this platform");
+#endif
+    pipelineDesc += " ! audioconvert ! audioresample ! opusenc ! rtpopuspay ! udpsink host=" + host + " port=" + std::to_string(port);
     pipeline = gst_parse_launch(pipelineDesc.c_str(), nullptr);
+
     if (!pipeline)
         throw std::runtime_error("Failed to create GStreamer pipeline");
 }
