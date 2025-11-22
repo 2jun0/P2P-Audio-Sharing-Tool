@@ -15,9 +15,9 @@ if(APPLE)
     enable_language(Swift)
 
     file(GLOB_RECURSE MACOS_SOURCES 
-        src/macos/*.mm
-        src/macos/*.cpp
-        src/macos/*.swift
+        macos/*.mm
+        macos/*.cpp
+        macos/*.swift
     )
 
     target_sources(Audio PRIVATE ${MACOS_SOURCES})
