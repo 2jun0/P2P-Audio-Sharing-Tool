@@ -28,6 +28,8 @@ if(APPLE)
             "-framework CoreAudio"
             "-framework CoreFoundation"
         )
+    target_include_directories(Audio PRIVATE ${PROJECT_SOURCE_DIR}/macos)
+
 endif()
 
 if(WIN32)

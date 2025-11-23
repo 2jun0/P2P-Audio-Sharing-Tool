@@ -3,7 +3,7 @@
 #include "audio_sender.hpp"
 
 #if defined(__APPLE__)
-#include "macos/ensure_loopback_bridge.hpp"
+#include "ensure_loopback_bridge.hpp"
 #endif
 
 AudioSender::AudioSender(const std::string &host, int port)
