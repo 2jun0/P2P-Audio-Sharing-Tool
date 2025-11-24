@@ -1,5 +1,4 @@
 #include "audio_loopback.hpp"
-#include <CoreAudio/AudioHardware.h>
 #include <cstring>
 
 OSStatus AudioLoopback_ioProc(AudioObjectID inDevice,
