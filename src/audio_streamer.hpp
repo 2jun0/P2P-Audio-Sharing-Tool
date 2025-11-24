@@ -10,6 +10,10 @@
 #include "audio_receiver.hpp"
 #include "session_manager.hpp"
 
+#if defined(__APPLE__)
+#include "audio_device_manager.hpp"
+#endif
+
 class AudioStreamer
 {
 public:
@@ -22,7 +26,7 @@ public:
     // User API
     void startSendingTo(const std::string &peerId);
     void stopSendingTo(const std::string &peerId);
-    void startReceivingFrom(const std::string &peerId);
+    void startReceivingFrom(const std::string &peerId, const std::optional<AudioDevice> &outputDevice);
     void stopReceivingFrom(const std::string &peerId);
     std::vector<std::string> getPeerIds() const { return sessionMgr->getPeerIds(); }
 
@@ -37,7 +41,11 @@ private:
 
     // SessionManager callbacks
     void updateSender(const std::string &peerId, bool shouldSend, const std::string &host, int port);
-    void updateReceiver(const std::string &peerId, bool shouldReceive, const std::string &host);
+    void updateReceiver(const std::string &peerId, bool shouldReceive, const std::string &host, const std::optional<AudioDevice> &outputDevice);
+
+#if defined(__APPLE__)
+    AudioDeviceManager audioDeviceManager;
+#endif
 };
 
 #endif /* audio_streamer_hpp */

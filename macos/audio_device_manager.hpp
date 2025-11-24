@@ -1,8 +1,10 @@
+#ifndef audio_device_manaper_hpp
+#define audio_device_manaper_hpp
+
 #include <CoreAudio/AudioHardware.h>
 #include "audio_deivce.hpp"
 #include <vector>
-
-typedef void (*DefaultOutputDeviceChangeCallback)(AudioDevice device);
+#include <functional>
 
 class AudioDeviceManager
 {
@@ -14,13 +16,13 @@ public:
     AudioDevice findDefaultOutputDevice();
 
     OSStatus handleDefaultOutputDeviceChangedIOProc();
-    void setDefaultOutputDeviceChangeCallback(DefaultOutputDeviceChangeCallback callback)
+    void setDefaultOutputDeviceChangeCallback(std::function<void(AudioDevice)> callback)
     {
         defaultOutputDeviceChangeCallback = callback;
     }
 
 private:
-    DefaultOutputDeviceChangeCallback defaultOutputDeviceChangeCallback;
+    std::function<void(AudioDevice)> defaultOutputDeviceChangeCallback;
 
     void registerListeners();
     void unregisterListeners();
@@ -31,3 +33,5 @@ static OSStatus defaultOutputDeviceChanged_ioProc(AudioObjectID inObjectID,
                                                   UInt32 inNumberAddresses,
                                                   const AudioObjectPropertyAddress *inAddresses,
                                                   void *inClientData);
+
+#endif /* audio_device_manaper_hpp */

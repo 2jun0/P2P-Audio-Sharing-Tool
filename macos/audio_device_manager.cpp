@@ -90,7 +90,7 @@ AudioDevice AudioDeviceManager::toAudioDevice(AudioObjectID deviceID)
     AudioObjectGetPropertyDataSize(deviceID, &oChAddr, 0, nullptr, &oChSize);
     int outputChannels = static_cast<int>(oChSize / sizeof(AudioObjectID));
 
-    return AudioDevice{name, uid, intputChannels, outputChannels};
+    return AudioDevice{name, uid, intputChannels, outputChannels, static_cast<int>(deviceID)};
 }
 
 OSStatus defaultOutputDeviceChanged_ioProc(AudioObjectID, UInt32, const AudioObjectPropertyAddress *, void *inClientData)

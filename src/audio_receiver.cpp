@@ -2,7 +2,7 @@
 #include <cassert>
 #include "audio_receiver.hpp"
 
-AudioReceiver::AudioReceiver(const std::string &host) : host(host)
+AudioReceiver::AudioReceiver(const std::string &host, const std::optional<AudioDevice> &outputDevice) : host(host), outputDevice(outputDevice)
 {
     initPipeline();
 }
@@ -10,18 +10,26 @@ AudioReceiver::AudioReceiver(const std::string &host) : host(host)
 AudioReceiver::~AudioReceiver()
 {
     stop();
-
-    if (pipeline)
-    {
-        gst_object_unref(pipeline);
-        pipeline = nullptr;
-    }
 }
 
 void AudioReceiver::initPipeline()
 {
     // TODO: Filter by host address
-    std::string pipelineDesc = "udpsrc name=recv_src port=0 caps=\"application/x-rtp, media=(string)audio, clock-rate=(int)48000, encoding-name=(string)OPUS\" ! rtpopusdepay ! opusdec ! audioconvert ! audioresample ! autoaudiosink";
+    int _port = (port == -1) ? 0 : port;
+    std::string pipelineDesc = "udpsrc name=recv_src port=" + std::to_string(_port) + " caps=\"application/x-rtp, media=(string)audio, clock-rate=(int)48000, encoding-name=(string)OPUS\" ! rtpopusdepay ! opusdec ! audioconvert ! audioresample ! ";
+
+    if (!outputDevice.has_value())
+    {
+        pipelineDesc += "autoaudiosink";
+    }
+    else
+    {
+#if defined(__APPLE__)
+        pipelineDesc += "osxaudiosink device=" + std::to_string(outputDevice->id);
+#else
+        pipelineDesc += "autoaudiosink";
+#endif
+    }
 
     pipeline = gst_parse_launch(pipelineDesc.c_str(), nullptr);
     if (!pipeline)
@@ -31,7 +39,57 @@ void AudioReceiver::initPipeline()
 void AudioReceiver::start()
 {
     assert(pipeline && "Pipeline not initialized");
-    assert(!started && "AudioReceiver cannot be reused");
+    assert(!started && "AudioReceiver already started");
+
+    playPipeline();
+
+    started = true;
+    if (onStateUpdate)
+        onStateUpdate(started, port, outputDevice);
+}
+
+void AudioReceiver::stop()
+{
+    if (pipeline)
+    {
+        gst_element_set_state(pipeline, GST_STATE_NULL);
+        gst_object_unref(pipeline);
+        pipeline = nullptr;
+    }
+
+    if (started)
+    {
+        started = false;
+        if (onStateUpdate)
+            onStateUpdate(started, port, outputDevice);
+    }
+}
+
+void AudioReceiver::updateOutputDevice(const std::optional<AudioDevice> &outputDevice)
+{
+    this->outputDevice = outputDevice;
+
+    // Stop pipeline
+    if (pipeline)
+    {
+        gst_element_set_state(pipeline, GST_STATE_NULL);
+        gst_object_unref(pipeline);
+        pipeline = nullptr;
+    }
+
+    initPipeline();
+
+    // Restart pipeline
+    if (started)
+        playPipeline();
+
+    if (onStateUpdate)
+        onStateUpdate(started, port, outputDevice);
+}
+
+void AudioReceiver::playPipeline()
+{
+    assert(pipeline && "Pipeline not initialized");
 
     // Ready
     GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_READY);
@@ -47,25 +105,11 @@ void AudioReceiver::start()
     gst_object_unref(udpsrc);
     if (actualPort <= 0)
         throw std::runtime_error("Failed to obtain bound UDP port");
-    port = actualPort;
 
     // Play
     ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE)
         throw std::runtime_error("Failed to set pipeline to PLAYING state");
 
-    started = true;
-    if (onStateUpdate)
-        onStateUpdate(started, port);
-}
-
-void AudioReceiver::stop()
-{
-    started = false;
-
-    if (pipeline)
-        gst_element_set_state(pipeline, GST_STATE_NULL);
-
-    if (onStateUpdate)
-        onStateUpdate(started, port);
+    port = actualPort;
 }

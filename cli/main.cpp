@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
                     continue;
                 }
                 std::cout << "[Main] Requesting to receive from peer: " << peerId << std::endl;
-                streamer.startReceivingFrom(peerId);
+                streamer.startReceivingFrom(peerId, std::nullopt);
             }
             else if (cmd == "stop-send")
             {
