@@ -10,8 +10,10 @@
 #include "audio_receiver.hpp"
 #include "session_manager.hpp"
 
-#if defined(__APPLE__)
-#include "audio_device_manager.hpp"
+#if defined(_WIN32)
+#include "win_audio_device_manager.hpp"
+#elif defined(__APPLE__)
+#include "mac_audio_device_manager.hpp"
 #endif
 
 class AudioStreamer
@@ -43,7 +45,9 @@ private:
     void updateSender(const std::string &peerId, bool shouldSend, const std::string &host, int port);
     void updateReceiver(const std::string &peerId, bool shouldReceive, const std::string &host, const std::optional<AudioDevice> &outputDevice);
 
-#if defined(__APPLE__)
+#if defined(_WIN32)
+    AudioDeviceManager audioDeviceManager;
+#elif defined(__APPLE__)
     AudioDeviceManager audioDeviceManager;
 #endif
 };

@@ -8,7 +8,17 @@ AudioStreamer::AudioStreamer(int port, const std::string &myId)
 {
     gst_init(nullptr, nullptr);
 
-#if defined(__APPLE__)
+#if defined(_WIN32)
+    audioDeviceManager.setDefaultOutputDeviceChangeCallback(
+        [this](AudioDevice device)
+        {
+            std::scoped_lock lock(audiosMutex);
+            for (auto &p : receivers)
+            {
+                p.second->updateOutputDevice(std::optional<AudioDevice>(device));
+            }
+        });
+#elif defined(__APPLE__)
     audioDeviceManager.setDefaultOutputDeviceChangeCallback(
         [this](AudioDevice device)
         {

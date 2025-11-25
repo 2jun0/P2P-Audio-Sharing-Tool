@@ -33,7 +33,14 @@ if(APPLE)
 endif()
 
 if(WIN32)
+    file(GLOB_RECURSE WINDOWS_SOURCES 
+        windows/*.cpp
+    )
+
+    target_sources(Audio PRIVATE ${WINDOWS_SOURCES})
+
     target_link_libraries(Audio PRIVATE ws2_32)
+    target_include_directories(Audio PRIVATE ${PROJECT_SOURCE_DIR}/windows)
 endif()
 
 target_include_directories(Audio PRIVATE ${PROJECT_SOURCE_DIR}/src)

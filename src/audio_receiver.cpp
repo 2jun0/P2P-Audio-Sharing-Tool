@@ -24,7 +24,9 @@ void AudioReceiver::initPipeline()
     }
     else
     {
-#if defined(__APPLE__)
+#if defined(_WIN32)
+        pipelineDesc += "wasapisink device=\"" + outputDevice->uid + "\"";
+#elif defined(__APPLE__)
         pipelineDesc += "osxaudiosink device=" + std::to_string(outputDevice->id);
 #else
         pipelineDesc += "autoaudiosink";
