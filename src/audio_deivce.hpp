@@ -7,8 +7,8 @@ struct AudioDevice
 {
     std::string name;
     std::string uid;
-    int inputChannels;
-    int outputChannels;
+    bool hasInput;
+    bool hasOutput;
 #if defined(__APPLE__)
     int id;
 #endif

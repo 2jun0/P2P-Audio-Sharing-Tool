@@ -80,17 +80,17 @@ AudioDevice AudioDeviceManager::toAudioDevice(AudioObjectID deviceID)
     auto name = getStringProperty(deviceID, kAudioObjectPropertyName);
     auto uid = getStringProperty(deviceID, kAudioDevicePropertyDeviceUID);
 
-    AudioObjectPropertyAddress iChAddr = getPropertyAddress(kAudioDevicePropertyStreams, kAudioDevicePropertyScopeInput);
-    UInt32 iChSize = 0;
-    AudioObjectGetPropertyDataSize(deviceID, &iChAddr, 0, nullptr, &iChSize);
-    int intputChannels = static_cast<int>(iChSize / sizeof(AudioObjectID));
+    AudioObjectPropertyAddress iStreamAddr = getPropertyAddress(kAudioDevicePropertyStreams, kAudioDevicePropertyScopeInput);
+    UInt32 iStreamSize = 0;
+    AudioObjectGetPropertyDataSize(deviceID, &iStreamAddr, 0, nullptr, &iStreamSize);
+    bool hasInput = iStreamSize > 0;
 
-    AudioObjectPropertyAddress oChAddr = getPropertyAddress(kAudioDevicePropertyStreams, kAudioDevicePropertyScopeOutput);
-    UInt32 oChSize = 0;
-    AudioObjectGetPropertyDataSize(deviceID, &oChAddr, 0, nullptr, &oChSize);
-    int outputChannels = static_cast<int>(oChSize / sizeof(AudioObjectID));
+    AudioObjectPropertyAddress oStreamAddr = getPropertyAddress(kAudioDevicePropertyStreams, kAudioDevicePropertyScopeOutput);
+    UInt32 oStreamSize = 0;
+    AudioObjectGetPropertyDataSize(deviceID, &oStreamAddr, 0, nullptr, &oStreamSize);
+    bool hasOutput = oStreamSize > 0;
 
-    return AudioDevice{name, uid, intputChannels, outputChannels, static_cast<int>(deviceID)};
+    return AudioDevice{name, uid, hasInput, hasOutput, static_cast<int>(deviceID)};
 }
 
 OSStatus defaultOutputDeviceChanged_ioProc(AudioObjectID, UInt32, const AudioObjectPropertyAddress *, void *inClientData)
