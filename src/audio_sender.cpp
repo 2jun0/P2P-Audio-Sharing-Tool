@@ -25,10 +25,10 @@ AudioSender::~AudioSender()
 
 void AudioSender::initPipeline()
 {
-
+    std::string pipelineDesc = "";
 #if defined(_WIN32)
     // WASAPI loopback
-    std::string pipelineDesc = "wasapisrc loopback=true";
+    pipelineDesc += "wasapisrc loopback=true";
 #elif defined(__APPLE__)
     // Loopback aggregate device
     const std::string loopbackUID = "com.2jun0.audiosharingtool.loopback";
@@ -36,7 +36,7 @@ void AudioSender::initPipeline()
     if (!ensureMacosLoopbackDevice(loopbackUID, loopbackName))
         throw std::runtime_error("Not supported on this device");
 
-    std::string pipelineDesc = "osxaudiosrc device=" + loopbackUID;
+    pipelineDesc += "osxaudiosrc device=" + loopbackUID;
 #else
     throw std::runtime_error("Not supported on this platform");
 #endif
