@@ -4,12 +4,13 @@ project(Audio LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-file(GLOB_RECURSE SOURCES
-    cli/*.cpp
-    src/*.cpp
-)
-add_executable(Audio ${SOURCES})
+file(GLOB_RECURSE LIB_SOURCES src/*.cpp)
+file(GLOB_RECURSE CLI_SOURCES cli/*.cpp)
 
+add_library(audio_lib SHARED ${LIB_SOURCES})
+set_target_properties(audio_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# macOS
 if(APPLE)
     enable_language(OBJCXX)
     enable_language(Swift)
@@ -20,36 +21,53 @@ if(APPLE)
         macos/*.swift
     )
 
-    target_sources(Audio PRIVATE ${MACOS_SOURCES})
-    set_target_properties(Audio PROPERTIES Swift_LANGUAGE_VERSION "5")
-
-    target_link_libraries(Audio
+    target_sources(audio_lib PRIVATE ${MACOS_SOURCES})
+    set_target_properties(audio_lib PROPERTIES Swift_LANGUAGE_VERSION "5")
+    target_link_libraries(audio_lib
         PRIVATE
             "-framework CoreAudio"
             "-framework CoreFoundation"
         )
-    target_include_directories(Audio PRIVATE ${PROJECT_SOURCE_DIR}/macos)
-
+    target_include_directories(audio_lib PRIVATE ${PROJECT_SOURCE_DIR}/macos)
 endif()
 
+# Windows
 if(WIN32)
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
     file(GLOB_RECURSE WINDOWS_SOURCES 
         windows/*.cpp
     )
 
-    target_sources(Audio PRIVATE ${WINDOWS_SOURCES})
-
-    target_link_libraries(Audio PRIVATE ws2_32)
-    target_include_directories(Audio PRIVATE ${PROJECT_SOURCE_DIR}/windows)
+    target_sources(audio_lib PRIVATE ${WINDOWS_SOURCES})
+    target_link_libraries(audio_lib PRIVATE ws2_32)
+    target_include_directories(audio_lib PRIVATE ${PROJECT_SOURCE_DIR}/windows)
 endif()
 
-target_include_directories(Audio PRIVATE ${PROJECT_SOURCE_DIR}/src)
-target_include_directories(Audio SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/external)
+target_include_directories(audio_lib PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_include_directories(audio_lib SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/external)
 
-# GStreamer
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
+if(ANDROID)
+    target_include_directories(audio_lib SYSTEM PRIVATE  
+        "${GSTREAMER_ROOT_ANDROID}/include"
+        "${GSTREAMER_ROOT_ANDROID}/include/gstreamer-1.0"
+        "${GSTREAMER_ROOT_ANDROID}/include/glib-2.0"
+        "${GSTREAMER_ROOT_ANDROID}/lib/glib-2.0/include"
+    )
+    target_link_directories(audio_lib PRIVATE "${GSTREAMER_ROOT_ANDROID}/lib")
+    target_link_libraries(audio_lib PRIVATE gstreamer-1.0 gmodule-2.0 gobject-2.0 glib-2.0 pcre2-8 ffi intl iconv)
+else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
+    
+    target_include_directories(audio_lib SYSTEM PRIVATE ${GSTREAMER_INCLUDE_DIRS})
+    target_link_directories(audio_lib PRIVATE ${GSTREAMER_LIBRARY_DIRS})
+    target_link_libraries(audio_lib PRIVATE ${GSTREAMER_LIBRARIES})
+    message(STATUS "GStreamer include dirs: ${GSTREAMER_LIBRARIES}")
+endif()
 
-target_include_directories(Audio SYSTEM PRIVATE ${GSTREAMER_INCLUDE_DIRS})
-target_link_directories(Audio PRIVATE ${GSTREAMER_LIBRARY_DIRS})
-target_link_libraries(Audio PRIVATE ${GSTREAMER_LIBRARIES})
+# Build CLI executable
+if(NOT ANDROID)
+    add_executable(audio_cli ${CLI_SOURCES})
+    target_link_libraries(audio_cli PRIVATE audio_lib)
+endif()
