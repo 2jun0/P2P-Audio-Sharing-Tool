@@ -6,9 +6,12 @@
 #include <unordered_map>
 #include <shared_mutex>
 #include <vector>
+#include <cstdint>
+#include <optional>
 #include "audio_sender.hpp"
 #include "audio_receiver.hpp"
 #include "session_manager.hpp"
+#include "export.hpp"
 
 #if defined(_WIN32)
 #include "win_audio_device_manager.hpp"
@@ -16,7 +19,7 @@
 #include "mac_audio_device_manager.hpp"
 #endif
 
-class AudioStreamer
+class AUDIO_API AudioStreamer
 {
 public:
     AudioStreamer(int port, const std::string &myId);
@@ -26,11 +29,20 @@ public:
     void stop();
 
     // User API
-    void startSendingTo(const std::string &peerId);
+    void startSendingTo(const std::string &peerId, const std::optional<AudioDevice> &inputDevice = std::nullopt);
     void stopSendingTo(const std::string &peerId);
-    void startReceivingFrom(const std::string &peerId, const std::optional<AudioDevice> &outputDevice);
+    void startReceivingFrom(const std::string &peerId, const std::optional<AudioDevice> &outputDevice = std::nullopt);
     void stopReceivingFrom(const std::string &peerId);
-    std::vector<std::string> getPeerIds() const { return sessionMgr->getPeerIds(); }
+    void changeOutputDevice(const std::string &peerId, const std::optional<AudioDevice> &outputDevice);
+    void changeInputDevice(const std::string &peerId, const std::optional<AudioDevice> &inputDevice);
+    std::vector<std::string> getPeerIds();
+#if defined(_WIN32) || defined(__APPLE__)
+    AudioDeviceManager &getAudioDeviceManager();
+#endif
+
+#if defined(__ANDROID__)
+    void submitCapturedAudio(const int16_t *pcmFrames, size_t frameCount, int sampleRate, int channelCount);
+#endif
 
 private:
     int port;
@@ -41,15 +53,14 @@ private:
     std::unordered_map<std::string, std::unique_ptr<AudioReceiver>> receivers; // peerId, AudioReceiver
     std::shared_mutex audiosMutex;
 
-    // SessionManager callbacks
-    void updateSender(const std::string &peerId, bool shouldSend, const std::string &host, int port);
-    void updateReceiver(const std::string &peerId, bool shouldReceive, const std::string &host, const std::optional<AudioDevice> &outputDevice);
-
-#if defined(_WIN32)
-    AudioDeviceManager audioDeviceManager;
-#elif defined(__APPLE__)
+#if defined(_WIN32) || defined(__APPLE__)
     AudioDeviceManager audioDeviceManager;
 #endif
+    // SessionManager callbacks
+    void updateSender(const std::string &peerId, bool shouldSend, const std::string &host, int port, const std::optional<AudioDevice> &inputDevice);
+    void updateReceiver(const std::string &peerId, bool shouldReceive, const std::string &host, const std::optional<AudioDevice> &outputDevice);
+
+    void handleDefaultOutputDeviceChange(const AudioDevice &device);
 };
 
 #endif /* audio_streamer_hpp */

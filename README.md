@@ -66,8 +66,9 @@ $env:PKG_CONFIG_PATH = "C:/Program Files/GStreamer/1.0/msvc_x86_64/lib/pkgconfig
 
 ```powershell
 mkdir build
-cmake -DCMAKE_BUILD_TYPE=Release .
-cmake --build build --config Release
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . --config Release
 ```
 
 ### Android

@@ -18,7 +18,7 @@ void AudioReceiver::initPipeline()
     int _port = (port == -1) ? 0 : port;
     std::string pipelineDesc = "udpsrc name=recv_src port=" + std::to_string(_port) + " caps=\"application/x-rtp, media=(string)audio, clock-rate=(int)48000, encoding-name=(string)OPUS\" ! rtpopusdepay ! opusdec ! audioconvert ! audioresample ! ";
 
-    if (!outputDevice.has_value())
+    if (isUsingDefaultOutput())
     {
         pipelineDesc += "autoaudiosink";
     }

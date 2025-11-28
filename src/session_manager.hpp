@@ -10,6 +10,7 @@
 #include <shared_mutex>
 #include <functional>
 #include <atomic>
+#include <optional>
 #include "udp_socket.hpp"
 #include "audio_deivce.hpp"
 
@@ -25,6 +26,7 @@ struct Peer
     bool wantToSendTo = false;
     bool wantToReceiveFrom = false;
     bool isReachable = false;
+    std::optional<AudioDevice> inputDevice;
     std::optional<AudioDevice> outputDevice;
     std::chrono::steady_clock::time_point lastSeen;
 };
@@ -41,15 +43,15 @@ public:
     std::vector<std::string> getPeerIds();
 
     // User-triggered state changes
-    void setWantToSendTo(const std::string &peerId, bool want);
-    void setWantToReceiveFrom(const std::string &peerId, bool want, std::optional<AudioDevice> outputDevice);
+    void setWantToSendTo(const std::string &peerId, bool want, const std::optional<AudioDevice> &inputDevice = std::nullopt);
+    void setWantToReceiveFrom(const std::string &peerId, bool want, const std::optional<AudioDevice> &outputDevice = std::nullopt);
 
     // Sender / Receiver triggered state changes
-    void updateSendingState(const std::string &peerId, bool sending);
-    void updateReceivingState(const std::string &peerId, bool receiving, int port, const std::optional<AudioDevice> &outputDevice);
+    void updateSendingState(const std::string &peerId, bool sending, const std::optional<AudioDevice> &inputDevice = std::nullopt);
+    void updateReceivingState(const std::string &peerId, bool receiving, int port, const std::optional<AudioDevice> &outputDevice = std::nullopt);
 
     // Callback for trigger Sender or Receiver
-    void setOnSendRequest(std::function<void(const std::string &, bool, const std::string &, int)> cb) { onSendRequest = std::move(cb); }
+    void setOnSendRequest(std::function<void(const std::string &, bool, const std::string &, int, const std::optional<AudioDevice> &)> cb) { onSendRequest = std::move(cb); }
     void setOnReceiveRequest(std::function<void(const std::string &, bool, const std::string &, const std::optional<AudioDevice> &)> cb) { onReceiveRequest = std::move(cb); }
 
     std::string getId() const { return id; }
@@ -60,7 +62,7 @@ private:
 
     std::unique_ptr<UdpSocket> udp;
     // callbacks for sending/receiving state updates per-peer: (peerId, newStates...)
-    std::function<void(const std::string &, bool, const std::string &, int)> onSendRequest;
+    std::function<void(const std::string &, bool, const std::string &, int, const std::optional<AudioDevice> &)> onSendRequest;
     std::function<void(const std::string &, bool, const std::string &, const std::optional<AudioDevice> &)> onReceiveRequest;
 
     std::unique_ptr<std::thread> healthCheckThread;

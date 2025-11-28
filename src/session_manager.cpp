@@ -120,7 +120,7 @@ void SessionManager::healthCheckThreadLoop()
             if (onReceiveRequest)
                 onReceiveRequest(peerId, false, peer.address, peer.outputDevice);
             if (onSendRequest)
-                onSendRequest(peerId, false, peer.address, peer.sendPortTo);
+                onSendRequest(peerId, false, peer.address, peer.sendPortTo, peer.inputDevice);
         }
 
         std::this_thread::sleep_for(std::chrono::seconds(10));
@@ -203,7 +203,7 @@ void SessionManager::receiveThreadLoop()
                 bool shouldReceive = peerCopy.wantToReceiveFrom && msgWantToSend;
 
                 if (peerCopy.sendingTo != shouldSend && onSendRequest)
-                    onSendRequest(peerId, shouldSend, peerCopy.address, peerCopy.sendPortTo);
+                    onSendRequest(peerId, shouldSend, peerCopy.address, peerCopy.sendPortTo, peerCopy.inputDevice);
                 if (peerCopy.receivingFrom != shouldReceive && onReceiveRequest)
                     onReceiveRequest(peerId, shouldReceive, peerCopy.address, peerCopy.outputDevice);
             }
@@ -242,7 +242,7 @@ void SessionManager::sendPong(const std::string &toId)
         std::cerr << "[SessionManager] Failed to send pong message" << std::endl;
 }
 
-void SessionManager::setWantToSendTo(const std::string &peerId, bool want)
+void SessionManager::setWantToSendTo(const std::string &peerId, bool want, const std::optional<AudioDevice> &inputDevice)
 {
     {
         std::scoped_lock lock(peersMutex);
@@ -250,12 +250,13 @@ void SessionManager::setWantToSendTo(const std::string &peerId, bool want)
         if (it == peers.end())
             return;
         it->second.wantToSendTo = want;
+        it->second.inputDevice = inputDevice;
     }
 
     sendPong(peerId);
 }
 
-void SessionManager::setWantToReceiveFrom(const std::string &peerId, bool want, std::optional<AudioDevice> outputDevice)
+void SessionManager::setWantToReceiveFrom(const std::string &peerId, bool want, const std::optional<AudioDevice> &outputDevice)
 {
     {
         std::scoped_lock lock(peersMutex);
@@ -269,7 +270,7 @@ void SessionManager::setWantToReceiveFrom(const std::string &peerId, bool want, 
     sendPong(peerId);
 }
 
-void SessionManager::updateSendingState(const std::string &peerId, bool sending)
+void SessionManager::updateSendingState(const std::string &peerId, bool sending, const std::optional<AudioDevice> &inputDevice)
 {
     {
         std::scoped_lock lock(peersMutex);
@@ -277,6 +278,7 @@ void SessionManager::updateSendingState(const std::string &peerId, bool sending)
         if (it == peers.end())
             return;
         it->second.sendingTo = sending;
+        it->second.inputDevice = inputDevice;
     }
 
     sendPong(peerId);
