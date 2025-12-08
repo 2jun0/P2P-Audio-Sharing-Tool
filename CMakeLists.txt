@@ -44,7 +44,7 @@ if(WIN32)
     target_include_directories(audio_lib PUBLIC ${PROJECT_SOURCE_DIR}/windows)
 endif()
 
-target_include_directories(audio_lib PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_include_directories(audio_lib PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_include_directories(audio_lib SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/external)
 
 if(ANDROID)
