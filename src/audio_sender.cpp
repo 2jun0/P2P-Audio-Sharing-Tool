@@ -37,7 +37,7 @@ void AudioSender::initPipeline()
     else
     {
 #if defined(_WIN32)
-        pipelineDesc += "wasapisrc loopback=true";
+        pipelineDesc += "wasapisrc loopback=true low-latency=true";
 #elif defined(__APPLE__)
         throw std::runtime_error("macOS requires a loopback / input audio device");
 #elif defined(__ANDROID__)
