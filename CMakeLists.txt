@@ -4,10 +4,10 @@ project(Audio LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-file(GLOB_RECURSE LIB_SOURCES src/*.cpp)
+file(GLOB_RECURSE COMMON_SOURCES src/common/*.cpp)
 file(GLOB_RECURSE CLI_SOURCES cli/*.cpp)
 
-add_library(audio_lib SHARED ${LIB_SOURCES})
+add_library(audio_lib SHARED ${COMMON_SOURCES})
 set_target_properties(audio_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # macOS
@@ -16,9 +16,9 @@ if(APPLE)
     enable_language(Swift)
 
     file(GLOB_RECURSE MACOS_SOURCES 
-        macos/*.mm
-        macos/*.cpp
-        macos/*.swift
+        src/macos/*.cpp
+        # src/macos/*.mm
+        # src/macos/*.swift
     )
 
     target_sources(audio_lib PRIVATE ${MACOS_SOURCES})
@@ -28,7 +28,7 @@ if(APPLE)
             "-framework CoreAudio"
             "-framework CoreFoundation"
         )
-    target_include_directories(audio_lib PUBLIC ${PROJECT_SOURCE_DIR}/macos)
+    target_include_directories(audio_lib PUBLIC ${PROJECT_SOURCE_DIR}/include/macos)
 endif()
 
 # Windows
@@ -36,15 +36,15 @@ if(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
     file(GLOB_RECURSE WINDOWS_SOURCES 
-        windows/*.cpp
+        src/windows/*.cpp
     )
 
     target_sources(audio_lib PRIVATE ${WINDOWS_SOURCES})
     target_link_libraries(audio_lib PRIVATE ws2_32)
-    target_include_directories(audio_lib PUBLIC ${PROJECT_SOURCE_DIR}/windows)
+    target_include_directories(audio_lib PUBLIC ${PROJECT_SOURCE_DIR}/include/windows)
 endif()
 
-target_include_directories(audio_lib PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(audio_lib PUBLIC ${PROJECT_SOURCE_DIR}/include/common)
 target_include_directories(audio_lib SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/external)
 
 if(ANDROID)
