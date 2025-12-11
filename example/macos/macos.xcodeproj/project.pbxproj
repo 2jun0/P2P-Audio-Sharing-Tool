@@ -278,7 +278,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(PROJECT_DIR)/../../build/Debug";
 				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/../../build/Debug";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_OBJC_BRIDGING_HEADER = "macos/Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "macos/bridge/Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -299,7 +299,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(PROJECT_DIR)/../../build/Debug";
 				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/../../build/Debug";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_OBJC_BRIDGING_HEADER = "macos/Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "macos/bridge/Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;

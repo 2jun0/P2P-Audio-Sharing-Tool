@@ -1,10 +1,11 @@
 import Foundation
 
+// MARK: - Make Loopback Audio Device
 let audioDeviceName = "Loopback Audio"
 
 func prepareLoopback() {
     let done = DispatchSemaphore(value: 0)
-    
+
     LoopbackHelper.ensureMicrophonePermission { granted in
         if !granted {
             print("Microphone permission not granted.")
@@ -15,7 +16,7 @@ func prepareLoopback() {
         }
         done.signal()
     }
-    
+
     done.wait()
 }
 
@@ -33,7 +34,7 @@ func makePeerId() -> String {
 // MARK: - Main entry
 func main() {
     prepareLoopback()
-    
+
     let args = CommandLine.arguments
     var port = 6000
     var peerId = ""
@@ -58,6 +59,10 @@ func main() {
 
     let streamer = AudioStreamerWrapper(port: Int32(port), myId: peerId)
     streamer.start()
+    
+    let audioDeviceManager = streamer.getAudioDeviceManager()
+    let devices = audioDeviceManager.findAllAudioDevices()
+    let loopbackDevice = devices.first {device in device.name == audioDeviceName}
 
     // Interactive console loop
     print("\n=== Commands ===")
@@ -65,34 +70,42 @@ func main() {
     print("recv <peerId>")
     print("stop-send <peerId>")
     print("stop-recv <peerId>")
-    print("exit\n")
+    print("list")
+    print("quit\n")
 
     while true {
         guard let line = readLine() else { continue }
         let parts = line.split(separator: " ").map { String($0) }
 
-        guard parts.count >= 2 else {
-            if line == "exit" { break }
-            continue
-        }
-
         let cmd = parts[0]
-        let target = parts[1]
+        let target = parts.count >= 2 ? parts[1] : ""
 
         switch cmd {
         case "send":
-            streamer.startSending(to: target, inputDevice: audioDeviceName)
+            streamer.startSending(to: target, inputDeviceUID: loopbackDevice?.uid)
         case "recv":
-            streamer.startReceiving(from: target, outputDevice: nil)
+            streamer.startReceiving(from: target, outputDeviceUID: nil)
         case "stop-send":
             streamer.stopSending(to: target)
         case "stop-recv":
             streamer.stopReceiving(from: target)
+        case "list":
+            let peers = streamer.getPeerIds()
+            if peers.isEmpty {
+                print("No peers found.")
+            } else {
+                print("Known peers:")
+                for peer in peers {
+                    print(" - \(peer)")
+                }
+            }
+        case "quit":
+            break
         default:
             print("Unknown command: \(cmd)")
         }
     }
-    
+
     removeLoopback()
 }
 
