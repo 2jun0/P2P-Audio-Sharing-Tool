@@ -68,8 +68,9 @@ void AudioStreamer::submitCapturedAudio(const int16_t *pcmFrames, size_t frameCo
 }
 #endif
 
-void AudioStreamer::startSendingTo(const std::string &peerId, const std::optional<AudioDevice> &inputDevice)
+void AudioStreamer::startSendingTo(const std::string &peerId, const std::optional<std::string> &inputDeviceUID)
 {
+    std::optional<AudioDevice> inputDevice = findAudioDeviceByUID(inputDeviceUID);
     sessionMgr->setWantToSendTo(peerId, true, inputDevice);
 }
 
@@ -78,8 +79,9 @@ void AudioStreamer::stopSendingTo(const std::string &peerId)
     sessionMgr->setWantToSendTo(peerId, false);
 }
 
-void AudioStreamer::startReceivingFrom(const std::string &peerId, const std::optional<AudioDevice> &outputDevice)
+void AudioStreamer::startReceivingFrom(const std::string &peerId, const std::optional<std::string> &outputDeviceUID)
 {
+    std::optional<AudioDevice> outputDevice = findAudioDeviceByUID(outputDeviceUID);
     sessionMgr->setWantToReceiveFrom(peerId, true, outputDevice);
 }
 
@@ -88,8 +90,9 @@ void AudioStreamer::stopReceivingFrom(const std::string &peerId)
     sessionMgr->setWantToReceiveFrom(peerId, false, std::nullopt);
 }
 
-void AudioStreamer::changeOutputDevice(const std::string &peerId, const std::optional<AudioDevice> &outputDevice)
+void AudioStreamer::changeOutputDevice(const std::string &peerId, const std::optional<std::string> &outputDeviceUID)
 {
+    std::optional<AudioDevice> outputDevice = findAudioDeviceByUID(outputDeviceUID);
     std::scoped_lock lock(audiosMutex);
 
     auto it = receivers.find(peerId);
@@ -99,8 +102,9 @@ void AudioStreamer::changeOutputDevice(const std::string &peerId, const std::opt
     it->second->updateOutputDevice(outputDevice);
 }
 
-void AudioStreamer::changeInputDevice(const std::string &peerId, const std::optional<AudioDevice> &inputDevice)
+void AudioStreamer::changeInputDevice(const std::string &peerId, const std::optional<std::string> &inputDeviceUID)
 {
+    std::optional<AudioDevice> inputDevice = findAudioDeviceByUID(inputDeviceUID);
     std::scoped_lock lock(audiosMutex);
 
     auto it = senders.find(peerId);
@@ -200,4 +204,20 @@ void AudioStreamer::handleDefaultOutputDeviceChange(const AudioDevice &device)
 
         entry.second->updateOutputDevice(std::nullopt);
     }
+}
+
+std::optional<AudioDevice> AudioStreamer::findAudioDeviceByUID(const std::optional<std::string> &uid)
+{
+    if (!uid.has_value())
+        return std::nullopt;
+
+    auto devices = audioDeviceManager.findAllAudioDevices();
+    for (const auto &device : devices)
+    {
+        if (device.uid == uid)
+        {
+            return device;
+        }
+    }
+    return std::nullopt;
 }

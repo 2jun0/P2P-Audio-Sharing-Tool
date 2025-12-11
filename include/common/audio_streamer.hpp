@@ -29,12 +29,12 @@ public:
     void stop();
 
     // User API
-    void startSendingTo(const std::string &peerId, const std::optional<AudioDevice> &inputDevice = std::nullopt);
+    void startSendingTo(const std::string &peerId, const std::optional<std::string> &inputDeviceUID = std::nullopt);
     void stopSendingTo(const std::string &peerId);
-    void startReceivingFrom(const std::string &peerId, const std::optional<AudioDevice> &outputDevice = std::nullopt);
+    void startReceivingFrom(const std::string &peerId, const std::optional<std::string> &outputDeviceUID = std::nullopt);
     void stopReceivingFrom(const std::string &peerId);
-    void changeOutputDevice(const std::string &peerId, const std::optional<AudioDevice> &outputDevice);
-    void changeInputDevice(const std::string &peerId, const std::optional<AudioDevice> &inputDevice);
+    void changeOutputDevice(const std::string &peerId, const std::optional<std::string> &outputDeviceUID);
+    void changeInputDevice(const std::string &peerId, const std::optional<std::string> &inputDeviceUID);
     std::vector<std::string> getPeerIds();
 #if defined(_WIN32) || defined(__APPLE__)
     AudioDeviceManager &getAudioDeviceManager();
@@ -61,6 +61,7 @@ private:
     void updateReceiver(const std::string &peerId, bool shouldReceive, const std::string &host, const std::optional<AudioDevice> &outputDevice);
 
     void handleDefaultOutputDeviceChange(const AudioDevice &device);
+    std::optional<AudioDevice> findAudioDeviceByUID(const std::optional<std::string> &uid);
 };
 
 #endif /* audio_streamer_hpp */
