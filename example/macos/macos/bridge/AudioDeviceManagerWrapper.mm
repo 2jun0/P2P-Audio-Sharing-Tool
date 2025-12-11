@@ -1,7 +1,7 @@
 #import "AudioDeviceManagerWrapper.h"
 #import "AudioDeviceObjC.h"
 
-#include "audio_deivce.hpp"
+#include "audio_device.hpp"
 #include "mac_audio_device_manager.hpp"
 #include <vector>
 

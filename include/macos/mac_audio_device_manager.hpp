@@ -2,7 +2,7 @@
 #define audio_device_manaper_hpp
 
 #include <CoreAudio/AudioHardware.h>
-#include "audio_deivce.hpp"
+#include "audio_device.hpp"
 #include <vector>
 #include <functional>
 

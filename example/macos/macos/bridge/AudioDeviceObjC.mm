@@ -1,5 +1,5 @@
 #import "AudioDeviceObjC.h"
-#import "audio_deivce.hpp"
+#import "audio_device.hpp"
 #include <string>
 
 @implementation AudioDeviceObjC

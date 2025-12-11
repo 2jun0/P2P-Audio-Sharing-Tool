@@ -5,7 +5,7 @@
 #include <optional>
 #include <functional>
 #include <gst/gst.h>
-#include "audio_deivce.hpp"
+#include "audio_device.hpp"
 
 class AudioReceiver
 {

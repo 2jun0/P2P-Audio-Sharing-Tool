@@ -1,7 +1,7 @@
 #ifndef audio_device_manager_hpp
 #define audio_device_manager_hpp
 
-#include "audio_deivce.hpp"
+#include "audio_device.hpp"
 #include <vector>
 #include <functional>
 #include <mmdeviceapi.h>

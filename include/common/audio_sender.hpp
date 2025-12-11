@@ -5,7 +5,7 @@
 #include <functional>
 #include <gst/gst.h>
 #include <optional>
-#include "audio_deivce.hpp"
+#include "audio_device.hpp"
 
 #if defined(__ANDROID__)
 #include <cstddef>

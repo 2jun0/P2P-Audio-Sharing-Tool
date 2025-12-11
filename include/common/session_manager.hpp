@@ -12,7 +12,7 @@
 #include <atomic>
 #include <optional>
 #include "udp_socket.hpp"
-#include "audio_deivce.hpp"
+#include "audio_device.hpp"
 
 struct Peer
 {

@@ -1,5 +1,5 @@
-#ifndef audio_deivce_hpp
-#define audio_deivce_hpp
+#ifndef audio_device_hpp
+#define audio_device_hpp
 
 #include <string>
 
@@ -14,4 +14,4 @@ struct AudioDevice
 #endif
 };
 
-#endif /* audio_deivce_hpp */
+#endif /* audio_device_hpp */
