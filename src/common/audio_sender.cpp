@@ -25,7 +25,7 @@ void AudioSender::initPipeline()
     if (inputDevice.has_value())
     {
 #if defined(_WIN32)
-        pipelineDesc += "wasapisrc device=\"" + inputDevice->uid + "\"";
+        pipelineDesc += "wasapisrc device=\"" + inputDevice->uid + "\" low-latency=true buffer-time=20000 latency-time=5000 do-timestamp=true";
 #elif defined(__APPLE__)
         pipelineDesc += "osxaudiosrc device=" + std::to_string(inputDevice->id);
 #elif defined(__ANDROID__)
@@ -37,7 +37,7 @@ void AudioSender::initPipeline()
     else
     {
 #if defined(_WIN32)
-        pipelineDesc += "wasapisrc loopback=true low-latency=true";
+        pipelineDesc += "wasapisrc loopback=true low-latency=true buffer-time=20000 latency-time=5000 do-timestamp=true";
 #elif defined(__APPLE__)
         throw std::runtime_error("macOS requires a loopback / input audio device");
 #elif defined(__ANDROID__)
@@ -46,7 +46,7 @@ void AudioSender::initPipeline()
         throw std::runtime_error("Not supported on this platform");
 #endif
     }
-    pipelineDesc += " ! audioconvert ! audioresample ! opusenc ! rtpopuspay ! udpsink host=" + host + " port=" + std::to_string(port);
+    pipelineDesc += " ! audioconvert ! audioresample ! opusenc audio-type=restricted-lowdelay frame-size=10 ! rtpopuspay ! udpsink host=" + host + " port=" + std::to_string(port);
     pipeline = gst_parse_launch(pipelineDesc.c_str(), nullptr);
 
     if (!pipeline)

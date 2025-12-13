@@ -20,12 +20,16 @@ void AudioReceiver::initPipeline()
 
     if (isUsingDefaultOutput())
     {
+#if defined(_WIN32)
+        pipelineDesc += "wasapisink low-latency=true buffer-time=20000 latency-time=5000";
+#else
         pipelineDesc += "autoaudiosink";
+#endif
     }
     else
     {
 #if defined(_WIN32)
-        pipelineDesc += "wasapisink device=\"" + outputDevice->uid + "\"";
+        pipelineDesc += "wasapisink device=\"" + outputDevice->uid + "\" low-latency=true buffer-time=20000 latency-time=5000";
 #elif defined(__APPLE__)
         pipelineDesc += "osxaudiosink device=" + std::to_string(outputDevice->id);
 #else
