@@ -27,7 +27,7 @@ void AudioSender::initPipeline()
 #if defined(_WIN32)
         pipelineDesc += "wasapisrc device=\"" + inputDevice->uid + "\" low-latency=true buffer-time=20000 latency-time=5000 do-timestamp=true";
 #elif defined(__APPLE__)
-        pipelineDesc += "osxaudiosrc device=" + std::to_string(inputDevice->id);
+        pipelineDesc += "osxaudiosrc device=" + std::to_string(inputDevice->id) + " do-timestamp=true";
 #elif defined(__ANDROID__)
         throw std::runtime_error("Android does not support input audio device");
 #else
@@ -46,7 +46,7 @@ void AudioSender::initPipeline()
         throw std::runtime_error("Not supported on this platform");
 #endif
     }
-    pipelineDesc += " ! audioconvert ! audioresample ! opusenc audio-type=restricted-lowdelay frame-size=10 ! rtpopuspay ! udpsink host=" + host + " port=" + std::to_string(port);
+    pipelineDesc += " ! audioconvert ! audioresample ! opusenc ! rtpopuspay pt=96 ! queue max-size-buffers=1 ! rtpbin ! udpsink host=" + host + " port=" + std::to_string(port) + " sync=false async=false";
     pipeline = gst_parse_launch(pipelineDesc.c_str(), nullptr);
 
     if (!pipeline)
