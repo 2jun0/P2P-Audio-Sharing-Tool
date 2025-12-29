@@ -46,7 +46,7 @@ void AudioSender::initPipeline()
         throw std::runtime_error("Not supported on this platform");
 #endif
     }
-    pipelineDesc += " ! audioconvert ! audioresample ! opusenc ! rtpopuspay pt=96 ! queue max-size-buffers=1 ! rtpbin ! udpsink host=" + host + " port=" + std::to_string(port) + " sync=false async=false";
+    pipelineDesc += " ! audioconvert ! audioresample ! audio/x-raw,rate=48000,channels=2 ! opusenc ! rtpopuspay pt=96 ! queue max-size-buffers=1 ! rtpbin ! udpsink host=" + host + " port=" + std::to_string(port) + " sync=false async=false";
     pipeline = gst_parse_launch(pipelineDesc.c_str(), nullptr);
 
     if (!pipeline)
