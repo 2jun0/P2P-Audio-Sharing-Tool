@@ -16,7 +16,7 @@ void AudioReceiver::initPipeline()
 {
     // TODO: Filter by host address
     int _port = (port == -1) ? 0 : port;
-    std::string pipelineDesc = "udpsrc name=recv_src port=" + std::to_string(_port) + " buffer-size=524288 caps=\"application/x-rtp, media=(string)audio, clock-rate=(int)48000, encoding-name=(string)OPUS, payload=(int)96\" ! rtpbin drop-on-latency=true do-lost=true ! rtpopusdepay ! opusdec plc=true ! audioconvert ! audioresample ! ";
+    std::string pipelineDesc = "udpsrc name=recv_src port=" + std::to_string(_port) + " caps=\"application/x-rtp, media=(string)audio, clock-rate=(int)48000, encoding-name=(string)OPUS, payload=(int)96\" ! rtpbin drop-on-latency=true do-lost=true ! rtpopusdepay ! opusdec plc=true ! audioconvert ! audioresample ! audio/x-raw,rate=48000,channels=2 ! ";
 
     if (isUsingDefaultOutput())
     {
