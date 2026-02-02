@@ -17,5 +17,7 @@ std::string getStringProperty(AudioObjectID deviceID, AudioObjectPropertySelecto
     std::string str;
     str.resize(maxSize);
     CFStringGetCString(cfStr, str.data(), maxSize, kCFStringEncodingUTF8);
+    str.resize(strlen(str.c_str()));
+    CFRelease(cfStr);
     return str;
 }

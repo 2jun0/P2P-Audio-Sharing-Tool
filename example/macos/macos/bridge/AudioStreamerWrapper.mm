@@ -29,7 +29,7 @@
 }
 
 - (void)startSendingTo:(NSString *)peerId
-           inputDevice:(NSString *_Nullable)deviceUID {
+           inputDeviceUID:(NSString *_Nullable)deviceUID {
   std::string peerIdStr = std::string([peerId UTF8String]);
   std::optional<std::string> inputDeviceOpt =
       deviceUID ? std::optional<std::string>([deviceUID UTF8String])
@@ -43,7 +43,7 @@
 }
 
 - (void)startReceivingFrom:(NSString *)peerId
-              outputDevice:(NSString *_Nullable)deviceUID {
+              outputDeviceUID:(NSString *_Nullable)deviceUID {
   std::string peerIdStr = std::string([peerId UTF8String]);
   std::optional<std::string> outputDeviceOpt =
       deviceUID ? std::optional<std::string>([deviceUID UTF8String])
@@ -57,7 +57,7 @@
 }
 
 - (void)changeOutputDeviceFor:(NSString *)peerId
-                 outputDevice:(NSString *_Nullable)deviceUID {
+                 outputDeviceUID:(NSString *_Nullable)deviceUID {
   std::string peerIdStr = std::string([peerId UTF8String]);
   std::optional<std::string> outputDeviceOpt =
       deviceUID ? std::optional<std::string>([deviceUID UTF8String])
@@ -67,7 +67,7 @@
 }
 
 - (void)changeInputDeviceFor:(NSString *)peerId
-                 inputDevice:(NSString *_Nullable)deviceUID {
+                 inputDeviceUID:(NSString *_Nullable)deviceUID {
   std::string peerIdStr = std::string([peerId UTF8String]);
   std::optional<std::string> inputDeviceOpt =
       deviceUID ? std::optional<std::string>([deviceUID UTF8String])
