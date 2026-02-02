@@ -1,14 +1,26 @@
 cmake_minimum_required(VERSION 3.16)
-project(Audio LANGUAGES CXX)
+project(audio_link_core LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 file(GLOB_RECURSE COMMON_SOURCES src/common/*.cpp)
 file(GLOB_RECURSE CLI_SOURCES cli/*.cpp)
+file(GLOB_RECURSE FFI_SOURCES src/ffi/*.cpp)
 
-add_library(audio_lib SHARED ${COMMON_SOURCES})
-set_target_properties(audio_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
+# On Apple/Windows, AudioDeviceManager is implemented in platform-specific sources.
+# Exclude the generic (GStreamer-based) implementation to avoid duplicate symbols.
+if(APPLE OR WIN32)
+    list(FILTER COMMON_SOURCES EXCLUDE REGEX ".*src/common/audio_device_manager\\.cpp$")
+endif()
+
+add_library(${PROJECT_NAME} SHARED ${COMMON_SOURCES} ${FFI_SOURCES})
+set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# Export FFI symbols on Windows.
+if(WIN32)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE AUDIO_LINK_CORE_FFI_EXPORTS)
+endif()
 
 # macOS
 if(APPLE)
@@ -21,14 +33,14 @@ if(APPLE)
         # src/macos/*.swift
     )
 
-    target_sources(audio_lib PRIVATE ${MACOS_SOURCES})
-    set_target_properties(audio_lib PROPERTIES Swift_LANGUAGE_VERSION "5")
-    target_link_libraries(audio_lib
+    target_sources(${PROJECT_NAME} PRIVATE ${MACOS_SOURCES})
+    set_target_properties(${PROJECT_NAME} PROPERTIES Swift_LANGUAGE_VERSION "5")
+    target_link_libraries(${PROJECT_NAME}
         PRIVATE
             "-framework CoreAudio"
             "-framework CoreFoundation"
         )
-    target_include_directories(audio_lib PUBLIC ${PROJECT_SOURCE_DIR}/include/macos)
+    target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include/macos)
 endif()
 
 # Windows
@@ -39,31 +51,32 @@ if(WIN32)
         src/windows/*.cpp
     )
 
-    target_sources(audio_lib PRIVATE ${WINDOWS_SOURCES})
-    target_link_libraries(audio_lib PRIVATE ws2_32)
-    target_include_directories(audio_lib PUBLIC ${PROJECT_SOURCE_DIR}/include/windows)
+    target_sources(${PROJECT_NAME} PRIVATE ${WINDOWS_SOURCES})
+    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32)
+    target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include/windows)
 endif()
 
-target_include_directories(audio_lib PUBLIC ${PROJECT_SOURCE_DIR}/include/common)
-target_include_directories(audio_lib SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/external)
+target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include/common)
+target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include/ffi)
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/external)
 
 if(ANDROID)
-    target_include_directories(audio_lib SYSTEM PRIVATE  
+    target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE  
         "${GSTREAMER_ROOT_ANDROID}/include"
         "${GSTREAMER_ROOT_ANDROID}/include/gstreamer-1.0"
         "${GSTREAMER_ROOT_ANDROID}/include/glib-2.0"
         "${GSTREAMER_ROOT_ANDROID}/lib/glib-2.0/include"
     )
-    target_link_directories(audio_lib PRIVATE "${GSTREAMER_ROOT_ANDROID}/lib")
-    target_link_libraries(audio_lib PRIVATE gstreamer-1.0 gstapp-1.0 gmodule-2.0 gobject-2.0 glib-2.0 pcre2-8 ffi intl iconv)
+    target_link_directories(${PROJECT_NAME} PRIVATE "${GSTREAMER_ROOT_ANDROID}/lib")
+    target_link_libraries(${PROJECT_NAME} PRIVATE gstreamer-1.0 gstapp-1.0 gmodule-2.0 gobject-2.0 glib-2.0 pcre2-8 ffi intl iconv)
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
-    target_include_directories(audio_lib SYSTEM PUBLIC ${GSTREAMER_INCLUDE_DIRS})
-    target_link_directories(audio_lib PRIVATE ${GSTREAMER_LIBRARY_DIRS})
-    target_link_libraries(audio_lib PRIVATE ${GSTREAMER_LIBRARIES})
+    target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${GSTREAMER_INCLUDE_DIRS})
+    target_link_directories(${PROJECT_NAME} PRIVATE ${GSTREAMER_LIBRARY_DIRS})
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${GSTREAMER_LIBRARIES})
 
     # Build CLI executable
-    add_executable(audio_cli ${CLI_SOURCES})
-    target_link_libraries(audio_cli PRIVATE audio_lib)
+    add_executable(${PROJECT_NAME}_cli ${CLI_SOURCES})
+    target_link_libraries(${PROJECT_NAME}_cli PRIVATE ${PROJECT_NAME})
 endif()
