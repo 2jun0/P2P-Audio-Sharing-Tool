@@ -25,20 +25,24 @@ void SessionManager::initSocket()
 
 void SessionManager::start()
 {
+    stopSource = std::stop_source();
     initSocket();
 
     receiveThreadRunning = true;
-    receiveThread = std::make_unique<std::thread>(&SessionManager::receiveThreadLoop, this);
+    receiveThread = std::make_unique<std::thread>(&SessionManager::receiveThreadLoop, this, stopSource.get_token());
 
     pingThreadRunning = true;
-    pingThread = std::make_unique<std::thread>(&SessionManager::pingThreadLoop, this);
+    pingThread = std::make_unique<std::thread>(&SessionManager::pingThreadLoop, this, stopSource.get_token());
 
     healthCheckThreadRunning = true;
-    healthCheckThread = std::make_unique<std::thread>(&SessionManager::healthCheckThreadLoop, this);
+    healthCheckThread = std::make_unique<std::thread>(&SessionManager::healthCheckThreadLoop, this, stopSource.get_token());
 }
 
 void SessionManager::stop()
 {
+    stopSource.request_stop();
+    sleepCv.notify_all();
+
     pingThreadRunning = false;
     if (pingThread && pingThread->joinable())
     {
@@ -76,9 +80,9 @@ std::vector<std::string> SessionManager::getPeerIds()
     return ids;
 }
 
-void SessionManager::pingThreadLoop()
+void SessionManager::pingThreadLoop(std::stop_token st)
 {
-    while (pingThreadRunning)
+    while (pingThreadRunning && !st.stop_requested())
     {
         json j;
         j["SESSION"] = "SESSION"; // for check if message is from this program.
@@ -88,13 +92,16 @@ void SessionManager::pingThreadLoop()
         std::string message = j.dump();
         if (!udp->sendTo("255.255.255.255", port, message.c_str(), message.size()))
             std::cerr << "[SessionManager] Failed to send ping" << std::endl;
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        std::unique_lock<std::mutex> lock(sleepMutex);
+        sleepCv.wait_for(lock, st, std::chrono::seconds(1), []()
+                         { return false; });
     }
 }
 
-void SessionManager::healthCheckThreadLoop()
+void SessionManager::healthCheckThreadLoop(std::stop_token st)
 {
-    while (healthCheckThreadRunning)
+    while (healthCheckThreadRunning && !st.stop_requested())
     {
         const auto now = std::chrono::steady_clock::now();
         const auto timeout = std::chrono::seconds(60);
@@ -123,15 +130,17 @@ void SessionManager::healthCheckThreadLoop()
                 onSendRequest(peerId, false, peer.address, peer.sendPortTo, peer.inputDevice);
         }
 
-        std::this_thread::sleep_for(std::chrono::seconds(10));
+        std::unique_lock<std::mutex> lock(sleepMutex);
+        sleepCv.wait_for(lock, st, std::chrono::seconds(10), []()
+                         { return false; });
     }
 }
 
-void SessionManager::receiveThreadLoop()
+void SessionManager::receiveThreadLoop(std::stop_token st)
 {
     char buffer[2048];
 
-    while (receiveThreadRunning)
+    while (receiveThreadRunning && !st.stop_requested())
     {
         int err = 0;
         std::string senderAddr;

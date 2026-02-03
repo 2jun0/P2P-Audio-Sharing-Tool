@@ -11,6 +11,9 @@
 #include <functional>
 #include <atomic>
 #include <optional>
+#include <stop_token>
+#include <condition_variable>
+#include <mutex>
 #include "udp_socket.hpp"
 #include "audio_device.hpp"
 
@@ -73,13 +76,17 @@ private:
     std::atomic<bool> pingThreadRunning{false};
     std::atomic<bool> receiveThreadRunning{false};
 
+    std::stop_source stopSource;
+    std::condition_variable_any sleepCv;
+    std::mutex sleepMutex;
+
     std::unordered_map<std::string, Peer> peers; // id, Peer
     std::shared_mutex peersMutex;
 
     void initSocket();
-    void pingThreadLoop();
-    void receiveThreadLoop();
-    void healthCheckThreadLoop();
+    void pingThreadLoop(std::stop_token st);
+    void receiveThreadLoop(std::stop_token st);
+    void healthCheckThreadLoop(std::stop_token st);
     void sendPong(const std::string &id);
 };
 
