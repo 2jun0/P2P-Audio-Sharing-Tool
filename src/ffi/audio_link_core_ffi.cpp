@@ -301,36 +301,6 @@ extern "C"
         }
     }
 
-    alc_status_t alc_streamer_get_peer_id(alc_streamer_t *s, size_t index, char *out, size_t out_len, size_t *required_len)
-    {
-        if (!s || !s->impl)
-            return ALC_STATUS_INVALID_ARGUMENT;
-
-        try
-        {
-            const auto peers = s->impl->getPeers();
-            if (index >= peers.size())
-            {
-                setError(s, "index out of range");
-                if (required_len)
-                    *required_len = 0;
-                return ALC_STATUS_INVALID_ARGUMENT;
-            }
-
-            return writeStringToOut(peers[index].id, out, out_len, required_len);
-        }
-        catch (const std::exception &e)
-        {
-            setError(s, e.what());
-            return ALC_STATUS_INTERNAL_ERROR;
-        }
-        catch (...)
-        {
-            setError(s, "unknown error");
-            return ALC_STATUS_INTERNAL_ERROR;
-        }
-    }
-
     alc_status_t alc_streamer_get_peer_json(alc_streamer_t *s, size_t index, char *out, size_t out_len, size_t *required_len)
     {
         if (!s || !s->impl)
