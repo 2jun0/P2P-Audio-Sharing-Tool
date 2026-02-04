@@ -5,10 +5,14 @@
   AudioStreamer *streamer;
 }
 
-- (instancetype)initWithPort:(int)port myId:(NSString *)myId {
+- (instancetype)initWithPort:(int)port
+                        myId:(NSString *)myId
+                      myName:(NSString *)myName
+                      myType:(NSString *)myType {
   self = [super init];
   if (self) {
-    streamer = new AudioStreamer(port, [myId UTF8String]);
+    streamer = new AudioStreamer(port, [myId UTF8String], [myName UTF8String],
+                                 [myType UTF8String]);
   }
   return self;
 }

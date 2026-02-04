@@ -22,7 +22,7 @@
 class AUDIO_API AudioStreamer
 {
 public:
-    AudioStreamer(int port, const std::string &myId);
+    AudioStreamer(int port, const std::string &myId, const std::string &myName, const std::string &myType);
     ~AudioStreamer();
 
     void start();

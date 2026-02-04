@@ -7,7 +7,8 @@
 
 using json = nlohmann::json;
 
-SessionManager::SessionManager(int port, const std::string &id) : port(port), id(id)
+SessionManager::SessionManager(int port, const std::string &id, const std::string &name, const std::string &type)
+    : port(port), id(id), name(name), type(type)
 {
 }
 
@@ -89,6 +90,8 @@ void SessionManager::pingThreadLoop(std::stop_token st)
         j["SESSION"] = "SESSION"; // for check if message is from this program.
         j["type"] = "ping";
         j["from"] = id;
+        j["peerName"] = name;
+        j["peerType"] = type;
 
         std::string message = j.dump();
         if (!udp->sendTo("255.255.255.255", port, message.c_str(), message.size()))
@@ -176,12 +179,17 @@ void SessionManager::receiveThreadLoop(std::stop_token st)
             if (peerId.empty() || peerId == id)
                 continue;
 
+            const std::string peerName = msgJson.value("peerName", std::string());
+            const std::string peerType = msgJson.value("peerType", std::string());
+
             if (msgType == "ping")
             {
                 const auto now = std::chrono::steady_clock::now();
                 {
                     std::scoped_lock lock(peersMutex);
                     peers[peerId].id = peerId;
+                    peers[peerId].name = peerName;
+                    peers[peerId].type = peerType;
                     peers[peerId].address = senderAddr;
                     peers[peerId].lastSeen = now;
                     peers[peerId].isReachable = true;
@@ -202,6 +210,8 @@ void SessionManager::receiveThreadLoop(std::stop_token st)
                 {
                     std::scoped_lock lock(peersMutex);
                     peers[peerId].id = peerId;
+                    peers[peerId].name = peerName;
+                    peers[peerId].type = peerType;
                     peers[peerId].address = senderAddr;
                     peers[peerId].sendPortTo = msgReceivePort;
                     peers[peerId].lastSeen = now;
@@ -241,6 +251,8 @@ void SessionManager::sendPong(const std::string &toId)
     j["type"] = "pong";
     j["from"] = id;
     j["to"] = peerCopy.id;
+    j["peerName"] = name;
+    j["peerType"] = type;
     j["receivePort"] = peerCopy.receivePortFrom;
     j["sending"] = peerCopy.sendingTo;
     j["receiving"] = peerCopy.receivingFrom;

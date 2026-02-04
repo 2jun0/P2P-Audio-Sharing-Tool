@@ -20,6 +20,9 @@
 struct Peer
 {
     std::string id;
+    std::string name;
+    // MacOS, Windows, Linux, Android, iOS, Others
+    std::string type;
     std::string address;
     // I'm sending / receiving / want to ~~~ to this peer
     int sendPortTo = -1;
@@ -37,7 +40,7 @@ struct Peer
 class SessionManager
 {
 public:
-    SessionManager(int port, const std::string &id);
+    SessionManager(int port, const std::string &id, const std::string &name, const std::string &type);
     ~SessionManager();
 
     void start();
@@ -62,6 +65,8 @@ public:
 private:
     int port;
     std::string id;
+    std::string name;
+    std::string type;
 
     std::unique_ptr<UdpSocket> udp;
     // callbacks for sending/receiving state updates per-peer: (peerId, newStates...)

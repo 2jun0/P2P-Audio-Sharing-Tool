@@ -57,7 +57,8 @@ func main() {
         print("")
     }
 
-    let streamer = AudioStreamerWrapper(port: Int32(port), myId: peerId)
+    let streamer = AudioStreamerWrapper(
+        port: Int32(port), myId: peerId, myName: peerId, myType: "MacOS")
     streamer.start()
 
     let audioDeviceManager = streamer.getAudioDeviceManager()

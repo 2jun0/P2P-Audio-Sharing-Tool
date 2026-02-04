@@ -4,7 +4,7 @@
 #include <vector>
 #include <shared_mutex>
 
-AudioStreamer::AudioStreamer(int port, const std::string &myId)
+AudioStreamer::AudioStreamer(int port, const std::string &myId, const std::string &myName, const std::string &myType)
     : port(port)
 {
     gst_init(nullptr, nullptr);
@@ -17,7 +17,7 @@ AudioStreamer::AudioStreamer(int port, const std::string &myId)
         });
 #endif
 
-    sessionMgr = std::make_unique<SessionManager>(port, myId);
+    sessionMgr = std::make_unique<SessionManager>(port, myId, myName, myType);
 
     // Register callbacks from SessionManager
     sessionMgr->setOnSendRequest(

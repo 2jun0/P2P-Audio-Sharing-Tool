@@ -38,7 +38,7 @@ extern "C"
 
     ALC_FFI_API const char *alc_version_string(void);
 
-    ALC_FFI_API alc_streamer_t *alc_streamer_create(int32_t port, const char *my_id);
+    ALC_FFI_API alc_streamer_t *alc_streamer_create(int32_t port, const char *my_id, const char *my_name, const char *my_type);
     ALC_FFI_API void alc_streamer_destroy(alc_streamer_t *s);
 
     ALC_FFI_API alc_status_t alc_streamer_start(alc_streamer_t *s);

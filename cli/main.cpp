@@ -38,6 +38,9 @@ int main(int argc, char *argv[])
 
     peerId = (argc > 2) ? argv[2] : makePeerId();
 
+    const std::string myName = (argc > 3) ? argv[3] : peerId;
+    const std::string myType = (argc > 4) ? argv[4] : "Others";
+
     if (argc <= 1)
     {
         std::cout << "Usage: " << argv[0] << " [port] [peerId]" << std::endl;
@@ -48,7 +51,7 @@ int main(int argc, char *argv[])
 
     try
     {
-        AudioStreamer streamer(port, peerId);
+        AudioStreamer streamer(port, peerId, myName, myType);
         std::cout << "[Main] Starting AudioStreamer on port " << port
                   << " with ID: " << peerId << std::endl;
         streamer.start();

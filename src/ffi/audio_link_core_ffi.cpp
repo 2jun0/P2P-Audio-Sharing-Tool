@@ -64,15 +64,15 @@ extern "C"
         return "audio_link_core_ffi/0.1";
     }
 
-    alc_streamer_t *alc_streamer_create(int32_t port, const char *my_id)
+    alc_streamer_t *alc_streamer_create(int32_t port, const char *my_id, const char *my_name, const char *my_type)
     {
-        if (port <= 0 || !my_id || my_id[0] == '\0')
+        if (port <= 0 || !my_id || my_id[0] == '\0' || !my_name || !my_type)
             return nullptr;
 
         try
         {
             auto *s = new alc_streamer();
-            s->impl = std::make_unique<AudioStreamer>(static_cast<int>(port), std::string(my_id));
+            s->impl = std::make_unique<AudioStreamer>(static_cast<int>(port), std::string(my_id), std::string(my_name), std::string(my_type));
             return s;
         }
         catch (...)
@@ -320,6 +320,8 @@ extern "C"
             const auto &peer = peers[index];
             json j;
             j["id"] = peer.id;
+            j["name"] = peer.name;
+            j["type"] = peer.type;
             j["address"] = peer.address;
             j["sendPortTo"] = peer.sendPortTo;
             j["receivePortFrom"] = peer.receivePortFrom;

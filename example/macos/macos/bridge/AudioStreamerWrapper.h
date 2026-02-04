@@ -9,7 +9,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface AudioStreamerWrapper : NSObject
 
-- (instancetype)initWithPort:(int)port myId:(NSString *)myId;
+- (instancetype)initWithPort:(int)port myId:(NSString *)myId myName:(NSString *)myName myType:(NSString *)myType;
 
 - (void)start;
 - (void)stop;
