@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
             }
             else if (cmd == "list")
             {
-                auto peers = streamer.getPeerIds();
+                auto peers = streamer.getPeers();
                 if (peers.empty())
                 {
                     std::cout << "[Main] No peers discovered yet." << std::endl;
@@ -125,8 +125,8 @@ int main(int argc, char *argv[])
                 else
                 {
                     std::cout << "[Main] Known peers:" << std::endl;
-                    for (const auto &id : peers)
-                        std::cout << "  - " << id << std::endl;
+                    for (const auto &peer : peers)
+                        std::cout << "  - " << peer.id << std::endl;
                 }
             }
             else if (cmd == "quit")

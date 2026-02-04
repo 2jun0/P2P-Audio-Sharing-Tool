@@ -15,7 +15,11 @@ const char *alc_version_string(void)
 #include <mutex>
 #include <string>
 
+#include <nlohmann/json.hpp>
+
 #include "audio_streamer.hpp"
+
+using json = nlohmann::json;
 
 struct alc_streamer
 {
@@ -288,7 +292,7 @@ extern "C"
 
         try
         {
-            const auto peers = s->impl->getPeerIds();
+            const auto peers = s->impl->getPeers();
             return peers.size();
         }
         catch (...)
@@ -304,7 +308,7 @@ extern "C"
 
         try
         {
-            const auto peers = s->impl->getPeerIds();
+            const auto peers = s->impl->getPeers();
             if (index >= peers.size())
             {
                 setError(s, "index out of range");
@@ -313,7 +317,83 @@ extern "C"
                 return ALC_STATUS_INVALID_ARGUMENT;
             }
 
-            return writeStringToOut(peers[index], out, out_len, required_len);
+            return writeStringToOut(peers[index].id, out, out_len, required_len);
+        }
+        catch (const std::exception &e)
+        {
+            setError(s, e.what());
+            return ALC_STATUS_INTERNAL_ERROR;
+        }
+        catch (...)
+        {
+            setError(s, "unknown error");
+            return ALC_STATUS_INTERNAL_ERROR;
+        }
+    }
+
+    alc_status_t alc_streamer_get_peer_json(alc_streamer_t *s, size_t index, char *out, size_t out_len, size_t *required_len)
+    {
+        if (!s || !s->impl)
+            return ALC_STATUS_INVALID_ARGUMENT;
+
+        try
+        {
+            const auto peers = s->impl->getPeers();
+            if (index >= peers.size())
+            {
+                setError(s, "index out of range");
+                if (required_len)
+                    *required_len = 0;
+                return ALC_STATUS_INVALID_ARGUMENT;
+            }
+
+            const auto &peer = peers[index];
+            json j;
+            j["id"] = peer.id;
+            j["address"] = peer.address;
+            j["sendPortTo"] = peer.sendPortTo;
+            j["receivePortFrom"] = peer.receivePortFrom;
+            j["sendingTo"] = peer.sendingTo;
+            j["receivingFrom"] = peer.receivingFrom;
+            j["wantToSendTo"] = peer.wantToSendTo;
+            j["wantToReceiveFrom"] = peer.wantToReceiveFrom;
+            j["isReachable"] = peer.isReachable;
+
+            if (peer.inputDevice.has_value())
+            {
+                json d;
+                d["name"] = peer.inputDevice->name;
+                d["uid"] = peer.inputDevice->uid;
+                d["hasInput"] = peer.inputDevice->hasInput;
+                d["hasOutput"] = peer.inputDevice->hasOutput;
+#if defined(__APPLE__)
+                d["id"] = peer.inputDevice->id;
+#endif
+                j["inputDevice"] = std::move(d);
+            }
+            else
+            {
+                j["inputDevice"] = nullptr;
+            }
+
+            if (peer.outputDevice.has_value())
+            {
+                json d;
+                d["name"] = peer.outputDevice->name;
+                d["uid"] = peer.outputDevice->uid;
+                d["hasInput"] = peer.outputDevice->hasInput;
+                d["hasOutput"] = peer.outputDevice->hasOutput;
+#if defined(__APPLE__)
+                d["id"] = peer.outputDevice->id;
+#endif
+                j["outputDevice"] = std::move(d);
+            }
+            else
+            {
+                j["outputDevice"] = nullptr;
+            }
+
+            return writeStringToOut(j.dump(), out, out_len, required_len);
         }
         catch (const std::exception &e)
         {

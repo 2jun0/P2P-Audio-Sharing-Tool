@@ -114,9 +114,9 @@ void AudioStreamer::changeInputDevice(const std::string &peerId, const std::opti
     it->second->updateInputDevice(inputDevice);
 }
 
-std::vector<std::string> AudioStreamer::getPeerIds()
+std::vector<Peer> AudioStreamer::getPeers()
 {
-    return sessionMgr->getPeerIds();
+    return sessionMgr->getPeers();
 }
 
 AudioDeviceManager &AudioStreamer::getAudioDeviceManager()

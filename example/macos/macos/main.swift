@@ -59,10 +59,10 @@ func main() {
 
     let streamer = AudioStreamerWrapper(port: Int32(port), myId: peerId)
     streamer.start()
-    
+
     let audioDeviceManager = streamer.getAudioDeviceManager()
     let devices = audioDeviceManager.findAllAudioDevices()
-    let loopbackDevice = devices.first {device in device.name == audioDeviceName}
+    let loopbackDevice = devices.first { device in device.name == audioDeviceName }
 
     // Interactive console loop
     print("\n=== Commands ===")
@@ -76,12 +76,12 @@ func main() {
     while true {
         guard let line = readLine() else { continue }
         let parts = line.split(separator: " ").map { String($0) }
-        
-        if (parts.count == 0) { continue }
+
+        if parts.count == 0 { continue }
 
         let cmd = parts[0]
         let target = parts.count >= 2 ? parts[1] : ""
-        
+
         if cmd == "quit" { break }
 
         switch cmd {
@@ -94,7 +94,7 @@ func main() {
         case "stop-recv":
             streamer.stopReceiving(from: target)
         case "list":
-            let peers = streamer.getPeerIds()
+            let peers = streamer.getPeers()
             if peers.isEmpty {
                 print("No peers found.")
             } else {

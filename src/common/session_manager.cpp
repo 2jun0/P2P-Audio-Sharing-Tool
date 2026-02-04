@@ -71,13 +71,14 @@ void SessionManager::stop()
     }
 }
 
-std::vector<std::string> SessionManager::getPeerIds()
+std::vector<Peer> SessionManager::getPeers()
 {
-    std::vector<std::string> ids;
+    std::vector<Peer> peerList;
     std::shared_lock lock(peersMutex);
+    peerList.reserve(peers.size());
     for (const auto &kv : peers)
-        ids.push_back(kv.first);
-    return ids;
+        peerList.push_back(kv.second);
+    return peerList;
 }
 
 void SessionManager::pingThreadLoop(std::stop_token st)

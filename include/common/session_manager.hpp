@@ -43,7 +43,7 @@ public:
     void start();
     void stop();
 
-    std::vector<std::string> getPeerIds();
+    std::vector<Peer> getPeers();
 
     // User-triggered state changes
     void setWantToSendTo(const std::string &peerId, bool want, const std::optional<AudioDevice> &inputDevice = std::nullopt);

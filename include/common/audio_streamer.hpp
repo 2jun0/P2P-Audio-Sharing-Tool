@@ -35,7 +35,7 @@ public:
     void stopReceivingFrom(const std::string &peerId);
     void changeOutputDevice(const std::string &peerId, const std::optional<std::string> &outputDeviceUID);
     void changeInputDevice(const std::string &peerId, const std::optional<std::string> &inputDeviceUID);
-    std::vector<std::string> getPeerIds();
+    std::vector<Peer> getPeers();
 #if defined(_WIN32) || defined(__APPLE__)
     AudioDeviceManager &getAudioDeviceManager();
 #endif

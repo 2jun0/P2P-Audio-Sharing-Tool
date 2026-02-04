@@ -29,7 +29,7 @@
 }
 
 - (void)startSendingTo:(NSString *)peerId
-           inputDeviceUID:(NSString *_Nullable)deviceUID {
+        inputDeviceUID:(NSString *_Nullable)deviceUID {
   std::string peerIdStr = std::string([peerId UTF8String]);
   std::optional<std::string> inputDeviceOpt =
       deviceUID ? std::optional<std::string>([deviceUID UTF8String])
@@ -43,7 +43,7 @@
 }
 
 - (void)startReceivingFrom:(NSString *)peerId
-              outputDeviceUID:(NSString *_Nullable)deviceUID {
+           outputDeviceUID:(NSString *_Nullable)deviceUID {
   std::string peerIdStr = std::string([peerId UTF8String]);
   std::optional<std::string> outputDeviceOpt =
       deviceUID ? std::optional<std::string>([deviceUID UTF8String])
@@ -57,7 +57,7 @@
 }
 
 - (void)changeOutputDeviceFor:(NSString *)peerId
-                 outputDeviceUID:(NSString *_Nullable)deviceUID {
+              outputDeviceUID:(NSString *_Nullable)deviceUID {
   std::string peerIdStr = std::string([peerId UTF8String]);
   std::optional<std::string> outputDeviceOpt =
       deviceUID ? std::optional<std::string>([deviceUID UTF8String])
@@ -67,7 +67,7 @@
 }
 
 - (void)changeInputDeviceFor:(NSString *)peerId
-                 inputDeviceUID:(NSString *_Nullable)deviceUID {
+              inputDeviceUID:(NSString *_Nullable)deviceUID {
   std::string peerIdStr = std::string([peerId UTF8String]);
   std::optional<std::string> inputDeviceOpt =
       deviceUID ? std::optional<std::string>([deviceUID UTF8String])
@@ -76,12 +76,12 @@
   streamer->changeInputDevice(peerIdStr, inputDeviceOpt);
 }
 
-- (NSArray<NSString *> *)getPeerIds {
-  std::vector<std::string> peers = streamer->getPeerIds();
+- (NSArray<NSString *> *)getPeers {
+  std::vector<Peer> peers = streamer->getPeers();
   NSMutableArray *arr = [NSMutableArray arrayWithCapacity:peers.size()];
 
   for (auto &p : peers) {
-    [arr addObject:[NSString stringWithUTF8String:p.c_str()]];
+    [arr addObject:[NSString stringWithUTF8String:p.id.c_str()]];
   }
   return arr;
 }

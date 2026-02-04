@@ -21,7 +21,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)stopReceivingFrom:(NSString *)peerId;
 - (void)changeOutputDeviceFor:(NSString *)peerId outputDeviceUID:(NSString *_Nullable)deviceUID;
 - (void)changeInputDeviceFor:(NSString *)peerId inputDeviceUID:(NSString *_Nullable)deviceUID;
-- (NSArray<NSString *> *)getPeerIds;
+- (NSArray<NSString *> *)getPeers;
 - (AudioDeviceManagerWrapper *)getAudioDeviceManager;
 
 @end

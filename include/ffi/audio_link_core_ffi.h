@@ -86,6 +86,17 @@ extern "C"
         size_t *required_len);
 
     /*
+      Writes a JSON representation of Peer for `index` into `out` (NUL-terminated).
+      If `out` is NULL or `out_len` is 0, returns required length including NUL via `required_len`.
+    */
+    ALC_FFI_API alc_status_t alc_streamer_get_peer_json(
+        alc_streamer_t *s,
+        size_t index,
+        char *out,
+        size_t out_len,
+        size_t *required_len);
+
+    /*
       Error retrieval
       - On any non-OK return, call this to get a human-readable message.
     */
