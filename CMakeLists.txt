@@ -24,17 +24,9 @@ endif()
 
 # macOS
 if(APPLE)
-    enable_language(OBJCXX)
-    enable_language(Swift)
-
-    file(GLOB_RECURSE MACOS_SOURCES 
-        src/macos/*.cpp
-        # src/macos/*.mm
-        # src/macos/*.swift
-    )
+    file(GLOB_RECURSE MACOS_SOURCES src/macos/*.cpp)
 
     target_sources(${PROJECT_NAME} PRIVATE ${MACOS_SOURCES})
-    set_target_properties(${PROJECT_NAME} PROPERTIES Swift_LANGUAGE_VERSION "5")
     target_link_libraries(${PROJECT_NAME}
         PRIVATE
             "-framework CoreAudio"
@@ -47,9 +39,7 @@ endif()
 if(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
-    file(GLOB_RECURSE WINDOWS_SOURCES 
-        src/windows/*.cpp
-    )
+    file(GLOB_RECURSE WINDOWS_SOURCES src/windows/*.cpp)
 
     target_sources(${PROJECT_NAME} PRIVATE ${WINDOWS_SOURCES})
     target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32)
