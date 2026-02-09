@@ -381,6 +381,91 @@ extern "C"
         }
     }
 
+    size_t alc_streamer_get_audio_device_count(alc_streamer_t *s)
+    {
+        if (!s || !s->impl)
+            return 0;
+
+        try
+        {
+            const auto devices = s->impl->getAudioDeviceManager().findAllAudioDevices();
+            return devices.size();
+        }
+        catch (...)
+        {
+            return 0;
+        }
+    }
+
+    alc_status_t alc_streamer_get_audio_device_json(alc_streamer_t *s, size_t index, char *out, size_t out_len, size_t *required_len)
+    {
+        if (!s || !s->impl)
+            return ALC_STATUS_INVALID_ARGUMENT;
+
+        try
+        {
+            const auto devices = s->impl->getAudioDeviceManager().findAllAudioDevices();
+            if (index >= devices.size())
+            {
+                setError(s, "index out of range");
+                if (required_len)
+                    *required_len = 0;
+                return ALC_STATUS_INVALID_ARGUMENT;
+            }
+
+            const auto &device = devices[index];
+            json j;
+            j["name"] = device.name;
+            j["uid"] = device.uid;
+            j["hasInput"] = device.hasInput;
+            j["hasOutput"] = device.hasOutput;
+#if defined(__APPLE__)
+            j["id"] = device.id;
+#endif
+            return writeStringToOut(j.dump(), out, out_len, required_len);
+        }
+        catch (const std::exception &e)
+        {
+            setError(s, e.what());
+            return ALC_STATUS_INTERNAL_ERROR;
+        }
+        catch (...)
+        {
+            setError(s, "unknown error");
+            return ALC_STATUS_INTERNAL_ERROR;
+        }
+    }
+
+    alc_status_t alc_streamer_get_default_output_device_json(alc_streamer_t *s, char *out, size_t out_len, size_t *required_len)
+    {
+        if (!s || !s->impl)
+            return ALC_STATUS_INVALID_ARGUMENT;
+
+        try
+        {
+            const auto device = s->impl->getAudioDeviceManager().findDefaultOutputDevice();
+            json j;
+            j["name"] = device.name;
+            j["uid"] = device.uid;
+            j["hasInput"] = device.hasInput;
+            j["hasOutput"] = device.hasOutput;
+#if defined(__APPLE__)
+            j["id"] = device.id;
+#endif
+            return writeStringToOut(j.dump(), out, out_len, required_len);
+        }
+        catch (const std::exception &e)
+        {
+            setError(s, e.what());
+            return ALC_STATUS_INTERNAL_ERROR;
+        }
+        catch (...)
+        {
+            setError(s, "unknown error");
+            return ALC_STATUS_INTERNAL_ERROR;
+        }
+    }
+
     alc_status_t alc_streamer_last_error(alc_streamer_t *s, char *out, size_t out_len, size_t *required_len)
     {
         if (!s)

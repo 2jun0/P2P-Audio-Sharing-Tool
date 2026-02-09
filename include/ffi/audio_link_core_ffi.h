@@ -86,6 +86,33 @@ extern "C"
         size_t *required_len);
 
     /*
+      Audio device polling APIs
+      - Available on macOS / Windows.
+    */
+    ALC_FFI_API size_t alc_streamer_get_audio_device_count(alc_streamer_t *s);
+
+    /*
+      Writes a JSON representation of AudioDevice for `index` into `out` (NUL-terminated).
+      If `out` is NULL or `out_len` is 0, returns required length including NUL via `required_len`.
+    */
+    ALC_FFI_API alc_status_t alc_streamer_get_audio_device_json(
+        alc_streamer_t *s,
+        size_t index,
+        char *out,
+        size_t out_len,
+        size_t *required_len);
+
+    /*
+      Writes a JSON representation of the current default output device into `out` (NUL-terminated).
+      If `out` is NULL or `out_len` is 0, returns required length including NUL via `required_len`.
+    */
+    ALC_FFI_API alc_status_t alc_streamer_get_default_output_device_json(
+        alc_streamer_t *s,
+        char *out,
+        size_t out_len,
+        size_t *required_len);
+
+    /*
       Error retrieval
       - On any non-OK return, call this to get a human-readable message.
     */
