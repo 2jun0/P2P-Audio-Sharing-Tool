@@ -214,6 +214,8 @@ void SessionManager::receiveThreadLoop(std::stop_token st)
                     peers[peerId].type = peerType;
                     peers[peerId].address = senderAddr;
                     peers[peerId].sendPortTo = msgReceivePort;
+                    peers[peerId].peerWantToSendToMe = msgWantToSend;
+                    peers[peerId].peerWantToReceiveFromMe = msgWantToReceive;
                     peers[peerId].lastSeen = now;
                     peers[peerId].isReachable = true;
                     peerCopy = peers[peerId];

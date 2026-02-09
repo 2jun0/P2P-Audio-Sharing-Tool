@@ -329,6 +329,8 @@ extern "C"
             j["receivingFrom"] = peer.receivingFrom;
             j["wantToSendTo"] = peer.wantToSendTo;
             j["wantToReceiveFrom"] = peer.wantToReceiveFrom;
+            j["peerWantToSendToMe"] = peer.peerWantToSendToMe;
+            j["peerWantToReceiveFromMe"] = peer.peerWantToReceiveFromMe;
             j["isReachable"] = peer.isReachable;
 
             if (peer.inputDevice.has_value())

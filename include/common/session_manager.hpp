@@ -31,6 +31,9 @@ struct Peer
     bool receivingFrom = false;
     bool wantToSendTo = false;
     bool wantToReceiveFrom = false;
+    // Peer wants to send audio to me
+    bool peerWantToSendToMe = false;
+    bool peerWantToReceiveFromMe = false;
     bool isReachable = false;
     std::optional<AudioDevice> inputDevice;
     std::optional<AudioDevice> outputDevice;
