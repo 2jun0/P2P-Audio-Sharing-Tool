@@ -12,7 +12,7 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 #define NOMINMAX
-#if defined(AUDIO_LINK_CORE_FFI_EXPORTS)
+#if defined(AUDIO_LINK_CORE_DLL_EXPORTS)
 #define ALC_FFI_API __declspec(dllexport)
 #else
 #define ALC_FFI_API __declspec(dllimport)

@@ -17,11 +17,6 @@ endif()
 add_library(${PROJECT_NAME} SHARED ${COMMON_SOURCES} ${FFI_SOURCES})
 set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-# Export FFI symbols on Windows.
-if(WIN32)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE AUDIO_LINK_CORE_FFI_EXPORTS)
-endif()
-
 # macOS
 if(APPLE)
     file(GLOB_RECURSE MACOS_SOURCES src/macos/*.cpp)
@@ -38,6 +33,7 @@ endif()
 # Windows
 if(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE AUDIO_LINK_CORE_DLL_EXPORTS)
 
     file(GLOB_RECURSE WINDOWS_SOURCES src/windows/*.cpp)
 

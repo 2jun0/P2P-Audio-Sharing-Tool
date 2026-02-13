@@ -23,7 +23,7 @@ public:
     }
 
 private:
-    IMMDeviceEnumerator *enumerator = nullptr;
+    Microsoft::WRL::ComPtr<IMMDeviceEnumerator> enumerator;
     std::function<void(AudioDevice)> defaultOutputDeviceChangeCallback;
     Microsoft::WRL::ComPtr<AudioDeviceNotificationClient> notificationClient;
 

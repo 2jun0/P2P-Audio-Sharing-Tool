@@ -4,23 +4,26 @@
 #include "property_helper.hpp"
 #include <stdexcept>
 
+using Microsoft::WRL::ComPtr;
+
 AudioDeviceManager::AudioDeviceManager()
 {
     CoInitialize(NULL);
     HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_ALL,
-                                  __uuidof(IMMDeviceEnumerator), (void **)&enumerator);
+                                  IID_PPV_ARGS(&enumerator));
+    if (FAILED(hr) || !enumerator)
+        throw std::runtime_error("Failed to create MMDeviceEnumerator");
 
     auto client = new AudioDeviceNotificationClient([this](LPCWSTR deviceId, bool isSpeaker)
                                                     {
         if (enumerator && defaultOutputDeviceChangeCallback)
         {
-            IMMDevice *device = nullptr;
+            ComPtr<IMMDevice> device;
             HRESULT hr2 = enumerator->GetDevice(deviceId, &device);
             if (SUCCEEDED(hr2) && device)
             {
-                AudioDevice audioDevice = toAudioDevice(device, isSpeaker);
+                AudioDevice audioDevice = toAudioDevice(device.Get(), isSpeaker);
                 defaultOutputDeviceChangeCallback(audioDevice);
-                device->Release();
             }
         } });
     notificationClient.Attach(client);
@@ -34,10 +37,9 @@ AudioDeviceManager::~AudioDeviceManager()
     if (enumerator)
     {
         enumerator->UnregisterEndpointNotificationCallback(notificationClient.Get());
-        enumerator->Release();
-        enumerator = nullptr;
     }
 
+    enumerator.Reset();
     notificationClient.Reset();
     CoUninitialize();
 }
@@ -45,11 +47,10 @@ AudioDeviceManager::~AudioDeviceManager()
 std::vector<AudioDevice> AudioDeviceManager::findAllAudioDevices()
 {
     std::vector<AudioDevice> result;
-
     if (!enumerator)
-        return result;
+        throw std::runtime_error("Audio device enumerator is not initialized");
 
-    IMMDeviceCollection *collection = nullptr;
+    ComPtr<IMMDeviceCollection> collection;
     HRESULT hr = enumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &collection);
     if (FAILED(hr) || !collection)
         throw std::runtime_error("Failed to enumerate audio devices");
@@ -59,12 +60,12 @@ std::vector<AudioDevice> AudioDeviceManager::findAllAudioDevices()
 
     for (UINT i = 0; i < count; ++i)
     {
-        IMMDevice *device = nullptr;
+        ComPtr<IMMDevice> device;
         collection->Item(i, &device);
 
         try
         {
-            AudioDevice audioDevice = toAudioDevice(device, true);
+            AudioDevice audioDevice = toAudioDevice(device.Get(), true);
             result.push_back(audioDevice);
         }
         catch (...)
@@ -72,18 +73,28 @@ std::vector<AudioDevice> AudioDeviceManager::findAllAudioDevices()
             // ignore error
             // TODO: logging?
         }
-
-        device->Release();
     }
 
-    collection->Release();
     return result;
+}
+
+AudioDevice AudioDeviceManager::findDefaultOutputDevice()
+{
+    if (!enumerator)
+        throw std::runtime_error("Audio device enumerator is not initialized");
+
+    ComPtr<IMMDevice> device;
+    HRESULT hr = enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
+    if (FAILED(hr) || !device)
+        throw std::runtime_error("Failed to get default output device");
+
+    return toAudioDevice(device.Get(), true);
 }
 
 AudioDevice AudioDeviceManager::toAudioDevice(IMMDevice *device, bool isSpeaker)
 {
     LPWSTR id = nullptr;
-    IPropertyStore *props = nullptr;
+    ComPtr<IPropertyStore> props;
     PROPVARIANT name;
     PropVariantInit(&name);
 
@@ -92,8 +103,7 @@ AudioDevice AudioDeviceManager::toAudioDevice(IMMDevice *device, bool isSpeaker)
         // GUID
         HRESULT hr = device->GetId(&id);
         if (FAILED(hr))
-            throw std::runtime_error("Failed to get device ID: HRESULT = 0x" +
-                                     std::to_string(hr));
+            throw std::runtime_error("Failed to get device ID: HRESULT = 0x" + std::to_string(hr));
         std::string idStr = wideToUtf8(id);
 
         // Property Store
@@ -116,11 +126,6 @@ AudioDevice AudioDeviceManager::toAudioDevice(IMMDevice *device, bool isSpeaker)
             CoTaskMemFree(id);
             id = nullptr;
         }
-        if (props)
-        {
-            props->Release();
-            props = nullptr;
-        }
 
         return AudioDevice(nameStr, idStr, !isSpeaker, isSpeaker);
     }
@@ -132,12 +137,6 @@ AudioDevice AudioDeviceManager::toAudioDevice(IMMDevice *device, bool isSpeaker)
             CoTaskMemFree(id);
             id = nullptr;
         }
-        if (props)
-        {
-            props->Release();
-            props = nullptr;
-        }
-
         throw;
     }
 }
