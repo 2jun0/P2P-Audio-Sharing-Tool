@@ -48,10 +48,8 @@ brew install cmake pkg-config gstreamer gst-plugins-base gst-plugins-good
 2. 설정 및 빌드:
 
 ```bash
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
-cmake --build . --config Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
 ```
 
 ### Windows (MSVC)
@@ -66,11 +64,30 @@ $env:PKG_CONFIG_PATH = "C:/Program Files/GStreamer/1.0/msvc_x86_64/lib/pkgconfig
 3. MSVC를 활용할 수 있는 프롬프트에서 CMake를 실행하고 빌드하세요:
 
 ```powershell
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
-cmake --build . --config Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
 ```
+
+## CI 빌드 산출물 (GitHub Actions)
+
+이 저장소에는 자동 빌드 워크플로가 분리되어 있습니다.
+
+- [.github/workflows/build-macos.yml](.github/workflows/build-macos.yml)
+- [.github/workflows/build-windows.yml](.github/workflows/build-windows.yml)
+
+- 대상 환경
+  - macOS (Apple Silicon, arm64)
+  - Windows (x64)
+- 빌드 시스템: CMake
+- 산출물: 공유 라이브러리 파일 + 공개 헤더
+
+산출물 다운로드 위치:
+
+1. **Workflow Artifacts**
+    - push / PR / 수동 실행(workflow_dispatch)마다 생성됩니다.
+2. **Release Assets**
+    - `v`로 시작하는 태그(예: `v1.0.0`)를 push하면 GitHub Release 자산으로도 업로드됩니다.
+    - 다른 레포지토리에서 가져다 쓰기 좋은 형태입니다.
 
 ## 서드파티 라이브러리
 
