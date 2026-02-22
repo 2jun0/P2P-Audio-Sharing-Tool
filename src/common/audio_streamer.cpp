@@ -40,11 +40,13 @@ AudioStreamer::~AudioStreamer()
 
 void AudioStreamer::start()
 {
+    std::cout << "[AudioStreamer] Starting (session port=" << port << ")" << std::endl;
     sessionMgr->start();
 }
 
 void AudioStreamer::stop()
 {
+    std::cout << "[AudioStreamer] Stopping streamer" << std::endl;
     {
         std::scoped_lock lock(audiosMutex);
         senders.clear();
@@ -71,22 +73,26 @@ void AudioStreamer::submitCapturedAudio(const int16_t *pcmFrames, size_t frameCo
 void AudioStreamer::startSendingTo(const std::string &peerId, const std::optional<std::string> &inputDeviceUID)
 {
     std::optional<AudioDevice> inputDevice = findAudioDeviceByUID(inputDeviceUID);
+    std::cout << "[AudioStreamer] Request startSendingTo peer=" << peerId << " inputDeviceUID=" << (inputDeviceUID.has_value() ? inputDeviceUID.value() : "<default>") << std::endl;
     sessionMgr->setWantToSendTo(peerId, true, inputDevice);
 }
 
 void AudioStreamer::stopSendingTo(const std::string &peerId)
 {
+    std::cout << "[AudioStreamer] Request stopSendingTo peer=" << peerId << std::endl;
     sessionMgr->setWantToSendTo(peerId, false);
 }
 
 void AudioStreamer::startReceivingFrom(const std::string &peerId, const std::optional<std::string> &outputDeviceUID)
 {
     std::optional<AudioDevice> outputDevice = findAudioDeviceByUID(outputDeviceUID);
+    std::cout << "[AudioStreamer] Request startReceivingFrom peer=" << peerId << " outputDeviceUID=" << (outputDeviceUID.has_value() ? outputDeviceUID.value() : "<default>") << std::endl;
     sessionMgr->setWantToReceiveFrom(peerId, true, outputDevice);
 }
 
 void AudioStreamer::stopReceivingFrom(const std::string &peerId)
 {
+    std::cout << "[AudioStreamer] Request stopReceivingFrom peer=" << peerId << std::endl;
     sessionMgr->setWantToReceiveFrom(peerId, false, std::nullopt);
 }
 
@@ -97,8 +103,12 @@ void AudioStreamer::changeOutputDevice(const std::string &peerId, const std::opt
 
     auto it = receivers.find(peerId);
     if (it == receivers.end())
+    {
+        std::cerr << "[AudioStreamer] changeOutputDevice ignored; receiver not found for peer=" << peerId << std::endl;
         return;
+    }
 
+    std::cout << "[AudioStreamer] Changing output device for peer=" << peerId << std::endl;
     it->second->updateOutputDevice(outputDevice);
 }
 
@@ -109,8 +119,12 @@ void AudioStreamer::changeInputDevice(const std::string &peerId, const std::opti
 
     auto it = senders.find(peerId);
     if (it == senders.end())
+    {
+        std::cerr << "[AudioStreamer] changeInputDevice ignored; sender not found for peer=" << peerId << std::endl;
         return;
+    }
 
+    std::cout << "[AudioStreamer] Changing input device for peer=" << peerId << std::endl;
     it->second->updateInputDevice(inputDevice);
 }
 
@@ -129,6 +143,12 @@ void AudioStreamer::updateSender(const std::string &peerId, bool shouldSend, con
     std::scoped_lock lock(audiosMutex);
     auto it = senders.find(peerId);
 
+    std::cout << "[AudioStreamer] updateSender peer=" << peerId
+              << " shouldSend=" << (shouldSend ? "true" : "false")
+              << " host=" << host
+              << " port=" << port
+              << std::endl;
+
     if (shouldSend)
     {
         if (it != senders.end())
@@ -138,20 +158,32 @@ void AudioStreamer::updateSender(const std::string &peerId, bool shouldSend, con
             senders.erase(it);
         }
 
-        std::cout << "[AudioStreamer] Starting send to peer: " << peerId << std::endl;
-        auto sender = std::make_unique<AudioSender>(host, port, inputDevice);
-        sender->setOnStateUpdate(
-            [this, peerId](bool started, const std::optional<AudioDevice> &inputDevice)
-            {
-                sessionMgr->updateSendingState(peerId, started, inputDevice);
-            });
-        sender->start();
-        senders.emplace(peerId, std::move(sender));
+        try
+        {
+            std::cout << "[AudioStreamer] Starting send to peer: " << peerId << std::endl;
+            auto sender = std::make_unique<AudioSender>(host, port, inputDevice);
+            sender->setOnStateUpdate(
+                [this, peerId](bool started, const std::optional<AudioDevice> &inputDevice)
+                {
+                    sessionMgr->updateSendingState(peerId, started, inputDevice);
+                });
+            sender->start();
+            senders.emplace(peerId, std::move(sender));
+            std::cout << "[AudioStreamer] Send pipeline started successfully for peer=" << peerId << std::endl;
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "[AudioStreamer] Failed to start sender for peer=" << peerId << ": " << e.what() << std::endl;
+            sessionMgr->updateSendingState(peerId, false, inputDevice);
+        }
     }
     else
     {
         if (it == senders.end())
+        {
+            std::cout << "[AudioStreamer] Sender already stopped for peer=" << peerId << std::endl;
             return;
+        }
 
         std::cout << "[AudioStreamer] Stopping send to peer: " << peerId << std::endl;
         it->second->stop();
@@ -164,6 +196,11 @@ void AudioStreamer::updateReceiver(const std::string &peerId, bool shouldReceive
     std::scoped_lock lock(audiosMutex);
     auto it = receivers.find(peerId);
 
+    std::cout << "[AudioStreamer] updateReceiver peer=" << peerId
+              << " shouldReceive=" << (shouldReceive ? "true" : "false")
+              << " host=" << host
+              << std::endl;
+
     if (shouldReceive)
     {
         if (it != receivers.end())
@@ -173,20 +210,32 @@ void AudioStreamer::updateReceiver(const std::string &peerId, bool shouldReceive
             receivers.erase(it);
         }
 
-        std::cout << "[AudioStreamer] Starting receive from peer: " << peerId << std::endl;
-        auto receiver = std::make_unique<AudioReceiver>(host, outputDevice);
-        receiver->setOnStateUpdate(
-            [this, peerId](bool receiving, int receivePort, const std::optional<AudioDevice> &outputDevice)
-            {
-                sessionMgr->updateReceivingState(peerId, receiving, receivePort, outputDevice);
-            });
-        receiver->start();
-        receivers.emplace(peerId, std::move(receiver));
+        try
+        {
+            std::cout << "[AudioStreamer] Starting receive from peer: " << peerId << std::endl;
+            auto receiver = std::make_unique<AudioReceiver>(host, outputDevice);
+            receiver->setOnStateUpdate(
+                [this, peerId](bool receiving, int receivePort, const std::optional<AudioDevice> &outputDevice)
+                {
+                    sessionMgr->updateReceivingState(peerId, receiving, receivePort, outputDevice);
+                });
+            receiver->start();
+            receivers.emplace(peerId, std::move(receiver));
+            std::cout << "[AudioStreamer] Receive pipeline started successfully for peer=" << peerId << std::endl;
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "[AudioStreamer] Failed to start receiver for peer=" << peerId << ": " << e.what() << std::endl;
+            sessionMgr->updateReceivingState(peerId, false, -1, outputDevice);
+        }
     }
     else
     {
         if (it == receivers.end())
+        {
+            std::cout << "[AudioStreamer] Receiver already stopped for peer=" << peerId << std::endl;
             return;
+        }
 
         std::cout << "[AudioStreamer] Stopping receive from peer: " << peerId << std::endl;
         it->second->stop();
@@ -216,8 +265,11 @@ std::optional<AudioDevice> AudioStreamer::findAudioDeviceByUID(const std::option
     {
         if (device.uid == uid)
         {
+            std::cout << "[AudioStreamer] Resolved audio device UID=" << uid.value() << std::endl;
             return device;
         }
     }
+
+    std::cerr << "[AudioStreamer] Audio device not found for UID=" << uid.value() << ", using default device" << std::endl;
     return std::nullopt;
 }

@@ -29,6 +29,8 @@ void SessionManager::start()
     stopSource = std::stop_source();
     initSocket();
 
+    std::cout << "[SessionManager] Starting session manager on port=" << port << " id=" << id << std::endl;
+
     receiveThreadRunning = true;
     receiveThread = std::make_unique<std::thread>(&SessionManager::receiveThreadLoop, this, stopSource.get_token());
 
@@ -41,6 +43,8 @@ void SessionManager::start()
 
 void SessionManager::stop()
 {
+    std::cout << "[SessionManager] Stopping session manager" << std::endl;
+
     stopSource.request_stop();
     sleepCv.notify_all();
 
@@ -184,6 +188,7 @@ void SessionManager::receiveThreadLoop(std::stop_token st)
 
             if (msgType == "ping")
             {
+                std::cout << "[SessionManager] Received ping from peer=" << peerId << " addr=" << senderAddr << std::endl;
                 const auto now = std::chrono::steady_clock::now();
                 {
                     std::scoped_lock lock(peersMutex);
@@ -224,15 +229,40 @@ void SessionManager::receiveThreadLoop(std::stop_token st)
                 bool shouldSend = peerCopy.wantToSendTo && msgWantToReceive && peerCopy.sendPortTo > 0;
                 bool shouldReceive = peerCopy.wantToReceiveFrom && msgWantToSend;
 
+                std::cout << "[SessionManager] Received pong"
+                          << "\n  Peer"
+                          << "\n    id            : " << peerId
+                          << "\n    address       : " << senderAddr
+                          << "\n    receivePort   : " << msgReceivePort
+                          << "\n    sending       : " << (msgSending ? "true" : "false")
+                          << "\n    receiving     : " << (msgReceiving ? "true" : "false")
+                          << "\n    wantToSend    : " << (msgWantToSend ? "true" : "false")
+                          << "\n    wantToReceive : " << (msgWantToReceive ? "true" : "false")
+                          << "\n  Local"
+                          << "\n    wantToSend    : " << (peerCopy.wantToSendTo ? "true" : "false")
+                          << "\n    wantToReceive : " << (peerCopy.wantToReceiveFrom ? "true" : "false")
+                          << "\n    sending       : " << (peerCopy.sendingTo ? "true" : "false")
+                          << "\n    receiving     : " << (peerCopy.receivingFrom ? "true" : "false")
+                          << "\n  Decision"
+                          << "\n    shouldSend    : " << (shouldSend ? "true" : "false")
+                          << "\n    shouldReceive : " << (shouldReceive ? "true" : "false")
+                          << std::endl;
+
                 if (peerCopy.sendingTo != shouldSend && onSendRequest)
+                {
+                    std::cout << "[SessionManager] Trigger onSendRequest peer=" << peerId << " shouldSend=" << (shouldSend ? "true" : "false") << std::endl;
                     onSendRequest(peerId, shouldSend, peerCopy.address, peerCopy.sendPortTo, peerCopy.inputDevice);
+                }
                 if (peerCopy.receivingFrom != shouldReceive && onReceiveRequest)
+                {
+                    std::cout << "[SessionManager] Trigger onReceiveRequest peer=" << peerId << " shouldReceive=" << (shouldReceive ? "true" : "false") << std::endl;
                     onReceiveRequest(peerId, shouldReceive, peerCopy.address, peerCopy.outputDevice);
+                }
             }
         }
         catch (json::parse_error &e)
         {
-            // ignore
+            std::cerr << "[SessionManager] Failed to parse incoming message from " << senderAddr << ": " << e.what() << std::endl;
         }
     }
 }
@@ -244,7 +274,10 @@ void SessionManager::sendPong(const std::string &toId)
         std::shared_lock lock(peersMutex);
         auto it = peers.find(toId);
         if (it == peers.end())
+        {
+            std::cerr << "[SessionManager] Cannot send pong; peer not found: " << toId << std::endl;
             return;
+        }
         peerCopy = it->second;
     }
 
@@ -268,11 +301,15 @@ void SessionManager::sendPong(const std::string &toId)
 
 void SessionManager::setWantToSendTo(const std::string &peerId, bool want, const std::optional<AudioDevice> &inputDevice)
 {
+    std::cout << "[SessionManager] setWantToSendTo peer=" << peerId << " want=" << (want ? "true" : "false") << std::endl;
     {
         std::scoped_lock lock(peersMutex);
         auto it = peers.find(peerId);
         if (it == peers.end())
+        {
+            std::cerr << "[SessionManager] setWantToSendTo ignored; peer not found: " << peerId << std::endl;
             return;
+        }
         it->second.wantToSendTo = want;
         it->second.inputDevice = inputDevice;
     }
@@ -282,11 +319,15 @@ void SessionManager::setWantToSendTo(const std::string &peerId, bool want, const
 
 void SessionManager::setWantToReceiveFrom(const std::string &peerId, bool want, const std::optional<AudioDevice> &outputDevice)
 {
+    std::cout << "[SessionManager] setWantToReceiveFrom peer=" << peerId << " want=" << (want ? "true" : "false") << std::endl;
     {
         std::scoped_lock lock(peersMutex);
         auto it = peers.find(peerId);
         if (it == peers.end())
+        {
+            std::cerr << "[SessionManager] setWantToReceiveFrom ignored; peer not found: " << peerId << std::endl;
             return;
+        }
         it->second.wantToReceiveFrom = want;
         it->second.outputDevice = outputDevice;
     }
@@ -296,11 +337,15 @@ void SessionManager::setWantToReceiveFrom(const std::string &peerId, bool want, 
 
 void SessionManager::updateSendingState(const std::string &peerId, bool sending, const std::optional<AudioDevice> &inputDevice)
 {
+    std::cout << "[SessionManager] updateSendingState peer=" << peerId << " sending=" << (sending ? "true" : "false") << std::endl;
     {
         std::scoped_lock lock(peersMutex);
         auto it = peers.find(peerId);
         if (it == peers.end())
+        {
+            std::cerr << "[SessionManager] updateSendingState ignored; peer not found: " << peerId << std::endl;
             return;
+        }
         it->second.sendingTo = sending;
         it->second.inputDevice = inputDevice;
     }
@@ -310,11 +355,15 @@ void SessionManager::updateSendingState(const std::string &peerId, bool sending,
 
 void SessionManager::updateReceivingState(const std::string &peerId, bool receiving, int port, const std::optional<AudioDevice> &outputDevice)
 {
+    std::cout << "[SessionManager] updateReceivingState peer=" << peerId << " receiving=" << (receiving ? "true" : "false") << " port=" << port << std::endl;
     {
         std::scoped_lock lock(peersMutex);
         auto it = peers.find(peerId);
         if (it == peers.end())
+        {
+            std::cerr << "[SessionManager] updateReceivingState ignored; peer not found: " << peerId << std::endl;
             return;
+        }
         it->second.receivingFrom = receiving;
         it->second.receivePortFrom = receiving ? port : -1;
         it->second.outputDevice = outputDevice;
