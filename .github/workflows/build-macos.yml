@@ -1,0 +1,50 @@
+name: Build macOS Shared Library
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    name: macOS (Apple Silicon)
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install pkg-config gstreamer gst-plugins-base gst-plugins-good
+
+      - name: Configure
+        run: cmake -S . -B build-macos-arm64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-macos-arm64 --config Release -j 4
+
+      - name: Prepare package
+        run: |
+          mkdir -p dist/macos-arm64/lib
+          cp -R include dist/macos-arm64/include
+          find build-macos-arm64 -type f -name "libaudio_link_core.dylib" -exec cp {} dist/macos-arm64/lib/ \;
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: audio_link_core-macos-arm64
+          path: dist/macos-arm64
+          if-no-files-found: error
+
+      - name: Upload release assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/macos-arm64/**

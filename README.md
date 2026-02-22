@@ -47,9 +47,7 @@ brew install cmake pkg-config gstreamer gst-plugins-base gst-plugins-good
 2. Configure and build:
 
 ```bash
-mkdir build
-cmake -S . -B build -G Xcode
-cmake -DCMAKE_BUILD_TYPE=Release .
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```
 
@@ -65,11 +63,30 @@ $env:PKG_CONFIG_PATH = "C:/Program Files/GStreamer/1.0/msvc_x86_64/lib/pkgconfig
 3. Run CMake from an MSVC command prompt and build
 
 ```powershell
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
-cmake --build . --config Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
 ```
+
+## CI build artifacts (GitHub Actions)
+
+This repository provides automated workflows at:
+
+- [.github/workflows/build-macos.yml](.github/workflows/build-macos.yml)
+- [.github/workflows/build-windows.yml](.github/workflows/build-windows.yml)
+
+- Targets:
+  - macOS (Apple Silicon, arm64)
+  - Windows (x64)
+- Build system: CMake
+- Output: shared library files + public headers
+
+Where to download build outputs:
+
+1. **Workflow Artifacts**
+  - Generated on each push/PR/manual run.
+2. **Release Assets**
+  - When a tag starting with `v` (for example `v1.0.0`) is pushed, the workflow uploads build outputs as GitHub Release assets.
+  - These are suitable for consumption from other repositories.
 
 ### Android
 
