@@ -1,8 +1,10 @@
 ﻿#include <stdexcept>
 #include <cassert>
 #include "audio_receiver.hpp"
+#include "audio_device_manager.hpp"
 
-AudioReceiver::AudioReceiver(const std::string &host, const std::optional<AudioDevice> &outputDevice) : host(host), outputDevice(outputDevice)
+AudioReceiver::AudioReceiver(int listenPort, const std::optional<AudioDevice> &outputDevice)
+    : port(listenPort), outputDevice(outputDevice)
 {
     initPipeline();
 }
@@ -14,32 +16,44 @@ AudioReceiver::~AudioReceiver()
 
 void AudioReceiver::initPipeline()
 {
-    // TODO: Filter by host address
-    int _port = (port == -1) ? 0 : port;
-    std::string pipelineDesc = "udpsrc name=recv_src port=" + std::to_string(_port) + " caps=\"application/x-rtp, media=(string)audio, clock-rate=(int)48000, encoding-name=(string)OPUS, payload=(int)96\" ! rtpbin drop-on-latency=true do-lost=true ! rtpopusdepay ! opusdec plc=true ! audioconvert ! audioresample ! audio/x-raw,rate=48000,channels=2 ! ";
+    int bindPort = (port <= 0) ? 0 : port;
 
-    if (isUsingDefaultOutput())
+    GError *err = nullptr;
+    std::string chainDesc =
+        "udpsrc name=recv_src port=" + std::to_string(bindPort) +
+        " caps=\"application/x-rtp, media=(string)audio, clock-rate=(int)48000,"
+        " encoding-name=(string)OPUS, payload=(int)96\""
+        " ! rtpbin drop-on-latency=true do-lost=true"
+        " ! rtpopusdepay ! opusdec plc=true"
+        " ! audioconvert ! audioresample ! audio/x-raw,rate=48000,channels=2";
+
+    GstElement *chain = gst_parse_bin_from_description(chainDesc.c_str(), TRUE, &err);
+    if (!chain)
     {
-#if defined(_WIN32)
-        pipelineDesc += "wasapisink low-latency=true buffer-time=20000 latency-time=5000";
-#else
-        pipelineDesc += "autoaudiosink";
-#endif
+        std::string msg = err ? err->message : "Unknown error";
+        if (err)
+            g_error_free(err);
+        throw std::runtime_error("Failed to create receive chain: " + msg);
     }
-    else
+    if (err)
+        g_error_free(err);
+
+    GstElement *sink = nullptr;
+    if (outputDevice.has_value())
+        sink = AudioDeviceManager::createSinkElement(outputDevice->uid);
+    if (!sink)
+        sink = gst_element_factory_make("autoaudiosink", nullptr);
+    if (!sink)
     {
-#if defined(_WIN32)
-        pipelineDesc += "wasapisink device=\"" + outputDevice->uid + "\" low-latency=true buffer-time=20000 latency-time=5000";
-#elif defined(__APPLE__)
-        pipelineDesc += "osxaudiosink device=" + std::to_string(outputDevice->id);
-#else
-        pipelineDesc += "autoaudiosink";
-#endif
+        gst_object_unref(chain);
+        throw std::runtime_error("Failed to create audio sink element");
     }
 
-    pipeline = gst_parse_launch(pipelineDesc.c_str(), nullptr);
-    if (!pipeline)
-        throw std::runtime_error("Failed to create GStreamer pipeline");
+    pipeline = gst_pipeline_new("receiver_pipeline");
+    gst_bin_add_many(GST_BIN(pipeline), chain, sink, NULL);
+
+    if (!gst_element_link(chain, sink))
+        throw std::runtime_error("Failed to link receive chain to audio sink");
 }
 
 void AudioReceiver::start()
@@ -48,10 +62,7 @@ void AudioReceiver::start()
     assert(!started && "AudioReceiver already started");
 
     playPipeline();
-
     started = true;
-    if (onStateUpdate)
-        onStateUpdate(started, port, outputDevice);
 }
 
 void AudioReceiver::stop()
@@ -63,19 +74,13 @@ void AudioReceiver::stop()
         pipeline = nullptr;
     }
 
-    if (started)
-    {
-        started = false;
-        if (onStateUpdate)
-            onStateUpdate(started, port, outputDevice);
-    }
+    started = false;
 }
 
 void AudioReceiver::updateOutputDevice(const std::optional<AudioDevice> &outputDevice)
 {
     this->outputDevice = outputDevice;
 
-    // Stop pipeline
     if (pipeline)
     {
         gst_element_set_state(pipeline, GST_STATE_NULL);
@@ -85,19 +90,14 @@ void AudioReceiver::updateOutputDevice(const std::optional<AudioDevice> &outputD
 
     initPipeline();
 
-    // Restart pipeline
     if (started)
         playPipeline();
-
-    if (onStateUpdate)
-        onStateUpdate(started, port, outputDevice);
 }
 
 void AudioReceiver::playPipeline()
 {
     assert(pipeline && "Pipeline not initialized");
 
-    // Ready
     GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_READY);
     if (ret == GST_STATE_CHANGE_FAILURE)
         throw std::runtime_error("Failed to set pipeline to READY state");
@@ -112,7 +112,6 @@ void AudioReceiver::playPipeline()
     if (actualPort <= 0)
         throw std::runtime_error("Failed to obtain bound UDP port");
 
-    // Play
     ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE)
         throw std::runtime_error("Failed to set pipeline to PLAYING state");

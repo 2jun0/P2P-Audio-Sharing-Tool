@@ -2,13 +2,14 @@
 #include <cassert>
 #include <cstring>
 #include "audio_sender.hpp"
+#include "audio_device_manager.hpp"
 
 #if defined(__ANDROID__)
 #include <gst/app/gstappsrc.h>
 #endif
 
-AudioSender::AudioSender(const std::string &host, int port, const std::optional<AudioDevice> &inputDevice)
-    : host(host), port(port), inputDevice(inputDevice)
+AudioSender::AudioSender(const std::string &targetHost, int targetPort, const std::optional<AudioDevice> &inputDevice)
+    : targetHost(targetHost), targetPort(targetPort), inputDevice(inputDevice)
 {
     initPipeline();
 }
@@ -20,37 +21,48 @@ AudioSender::~AudioSender()
 
 void AudioSender::initPipeline()
 {
-    std::string pipelineDesc = "";
+    GstElement *src = nullptr;
 
+#if defined(__ANDROID__)
+    src = gst_element_factory_make("appsrc", "appsrc");
+    if (!src)
+        throw std::runtime_error("Failed to create appsrc element");
+    g_object_set(src, "format", GST_FORMAT_TIME, "is-live", TRUE, "block", TRUE, "do-timestamp", TRUE, NULL);
+#else
     if (inputDevice.has_value())
-    {
-#if defined(_WIN32)
-        pipelineDesc += "wasapisrc device=\"" + inputDevice->uid + "\" low-latency=true buffer-time=20000 latency-time=5000 do-timestamp=true";
-#elif defined(__APPLE__)
-        pipelineDesc += "osxaudiosrc device=" + std::to_string(inputDevice->id) + " do-timestamp=true";
-#elif defined(__ANDROID__)
-        throw std::runtime_error("Android does not support input audio device");
-#else
-        throw std::runtime_error("Not supported on this platform");
+        src = AudioDeviceManager::createSourceElement(inputDevice->uid);
+    if (!src)
+        src = gst_element_factory_make("autoaudiosrc", nullptr);
+    if (!src)
+        throw std::runtime_error("Failed to create audio source element");
 #endif
-    }
-    else
-    {
-#if defined(_WIN32)
-        pipelineDesc += "wasapisrc loopback=true low-latency=true buffer-time=20000 latency-time=5000 do-timestamp=true";
-#elif defined(__APPLE__)
-        throw std::runtime_error("macOS requires a loopback / input audio device");
-#elif defined(__ANDROID__)
-        pipelineDesc += "appsrc name=appsrc format=time is-live=true block=true do-timestamp=true";
-#else
-        throw std::runtime_error("Not supported on this platform");
-#endif
-    }
-    pipelineDesc += " ! audioconvert ! audioresample ! audio/x-raw,rate=48000,channels=2 ! opusenc ! rtpopuspay pt=96 ! queue max-size-buffers=1 ! rtpbin ! udpsink host=" + host + " port=" + std::to_string(port) + " sync=false async=false";
-    pipeline = gst_parse_launch(pipelineDesc.c_str(), nullptr);
 
-    if (!pipeline)
-        throw std::runtime_error("Failed to create GStreamer pipeline");
+    GError *err = nullptr;
+    GstElement *chain = gst_parse_bin_from_description(
+        "audioconvert ! audioresample ! audio/x-raw,rate=48000,channels=2"
+        " ! opusenc ! rtpopuspay pt=96 ! queue max-size-buffers=1 ! rtpbin"
+        " ! udpsink name=udp_sink sync=false async=false",
+        TRUE, &err);
+    if (!chain)
+    {
+        gst_object_unref(src);
+        std::string msg = err ? err->message : "Unknown error";
+        if (err)
+            g_error_free(err);
+        throw std::runtime_error("Failed to create processing chain: " + msg);
+    }
+    if (err)
+        g_error_free(err);
+
+    GstElement *udpsink = gst_bin_get_by_name(GST_BIN(chain), "udp_sink");
+    g_object_set(udpsink, "host", targetHost.c_str(), "port", targetPort, NULL);
+    gst_object_unref(udpsink);
+
+    pipeline = gst_pipeline_new("sender_pipeline");
+    gst_bin_add_many(GST_BIN(pipeline), src, chain, NULL);
+
+    if (!gst_element_link(src, chain))
+        throw std::runtime_error("Failed to link audio source to processing chain");
 
 #if defined(__ANDROID__)
     appSrc = gst_bin_get_by_name(GST_BIN(pipeline), "appsrc");
@@ -65,7 +77,6 @@ void AudioSender::playPipeline()
 {
     assert(pipeline && "Pipeline not initialized");
 
-    // Play
     GstStateChangeReturn ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE)
         throw std::runtime_error("Failed to set pipeline to PLAYING state");
@@ -81,8 +92,6 @@ void AudioSender::start()
         throw std::runtime_error("Failed to set pipeline to PLAYING state");
 
     started = true;
-    if (onStateUpdate)
-        onStateUpdate(started, inputDevice);
 }
 
 void AudioSender::stop()
@@ -102,19 +111,13 @@ void AudioSender::stop()
         pipeline = nullptr;
     }
 
-    if (started)
-    {
-        started = false;
-        if (onStateUpdate)
-            onStateUpdate(started, inputDevice);
-    }
+    started = false;
 }
 
 void AudioSender::updateInputDevice(const std::optional<AudioDevice> &inputDevice)
 {
     this->inputDevice = inputDevice;
 
-    // Stop pipeline
 #if defined(__ANDROID__)
     if (appSrc)
     {
@@ -132,12 +135,8 @@ void AudioSender::updateInputDevice(const std::optional<AudioDevice> &inputDevic
 
     initPipeline();
 
-    // Restart pipeline
     if (started)
         playPipeline();
-
-    if (onStateUpdate)
-        onStateUpdate(started, inputDevice);
 }
 
 #if defined(__ANDROID__)

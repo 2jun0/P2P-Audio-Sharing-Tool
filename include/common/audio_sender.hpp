@@ -16,7 +16,7 @@
 class AudioSender
 {
 public:
-    AudioSender(const std::string &host, int port, const std::optional<AudioDevice> &inputDevice);
+    AudioSender(const std::string &targetHost, int targetPort, const std::optional<AudioDevice> &inputDevice = std::nullopt);
     ~AudioSender();
 
     void start();
@@ -26,21 +26,17 @@ public:
 
     bool isStarted() const { return started; }
 
-    void setOnStateUpdate(std::function<void(bool, const std::optional<AudioDevice> &)> cb) { onStateUpdate = std::move(cb); }
-
 #if defined(__ANDROID__)
     void pushPcmFrame(const int16_t *data, size_t frameCount, int sampleRate, int channelCount);
 #endif
 
 private:
-    std::string host;
-    int port;
-    // When std::nullopt, the sender should use the platform's default input device.
+    std::string targetHost;
+    int targetPort;
     std::optional<AudioDevice> inputDevice;
 
     GstElement *pipeline = nullptr;
     bool started = false;
-    std::function<void(bool, const std::optional<AudioDevice> &)> onStateUpdate; // started, inputDevice
 
     void initPipeline();
     void playPipeline();

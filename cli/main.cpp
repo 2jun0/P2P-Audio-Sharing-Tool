@@ -1,15 +1,14 @@
 #include <iostream>
 #include <string>
 #include <sstream>
-#include <thread>
-#include <chrono>
 #include <random>
-#include "audio_streamer.hpp"
+#include "lookup_service.hpp"
+#include "stream_manager.hpp"
+#include "audio_link_core_ffi.h"
 
 int main(int argc, char *argv[])
 {
-    int port = 6000; // default discovery/audio port
-    std::string peerId;
+    int port = 6000;
 
     if (argc > 1)
     {
@@ -36,105 +35,118 @@ int main(int argc, char *argv[])
         return id;
     };
 
-    peerId = (argc > 2) ? argv[2] : makePeerId();
-
+    const std::string peerId = (argc > 2) ? argv[2] : makePeerId();
     const std::string myName = (argc > 3) ? argv[3] : peerId;
     const std::string myType = (argc > 4) ? argv[4] : "Others";
 
     if (argc <= 1)
     {
-        std::cout << "Usage: " << argv[0] << " [port] [peerId]" << std::endl;
-        std::cout << "  port: local port for session discovery/audio (default: 6000)" << std::endl;
-        std::cout << "  peerId: 6-char hex id (default: random)" << std::endl;
+        std::cout << "Usage: " << argv[0] << " [port] [peerId] [name] [type]" << std::endl;
+        std::cout << "  port   : discovery port (default: 6000)" << std::endl;
+        std::cout << "  peerId : 6-char hex id (default: random)" << std::endl;
         std::cout << std::endl;
     }
 
     try
     {
-        AudioStreamer streamer(port, peerId, myName, myType);
-        std::cout << "[Main] Starting AudioStreamer on port " << port
-                  << " with ID: " << peerId << std::endl;
-        streamer.start();
+        alc_gst_init();
 
-        // Interactive mode: commands for testing
+        LookupService discovery(port, peerId, myName, myType);
+        StreamManager streams;
+
+        std::cout << "[Main] Starting discovery on port " << port << " with ID: " << peerId << std::endl;
+        discovery.start();
+
+        int sendCounter = 0;
+        int recvCounter = 0;
+
         std::cout << "\n=== Commands ===\n"
-                  << "send <peerId>             - Start sending to peer\n"
-                  << "recv <peerId>             - Start receiving from peer\n"
-                  << "stop-send <peerId>        - Stop sending to peer\n"
-                  << "stop-recv <peerId>        - Stop receiving from peer\n"
-                  << "list                      - Show known peer IDs\n"
+                  << "send <ip> <port>          - Start sending audio to ip:port (returns stream id)\n"
+                  << "recv                      - Start receiving audio (auto port)\n"
+                  << "stop-send <id>            - Stop a sender by id\n"
+                  << "stop-recv <id>            - Stop a receiver by id\n"
+                  << "stop-all                  - Stop all senders and receivers\n"
+                  << "list                      - Show discovered peers\n"
                   << "quit                      - Exit\n"
                   << "==================\n\n";
 
-        std::string command;
-        while (std::getline(std::cin, command))
+        std::string line;
+        while (std::getline(std::cin, line))
         {
-            if (command.empty())
+            if (line.empty())
                 continue;
 
-            // Simple command parsing
-            std::istringstream iss(command);
-            std::string cmd, peerId;
-
-            iss >> cmd >> peerId;
+            std::istringstream iss(line);
+            std::string cmd;
+            iss >> cmd;
 
             if (cmd == "send")
             {
-                if (peerId.empty())
+                std::string ip;
+                int targetPort = 0;
+                iss >> ip >> targetPort;
+                if (ip.empty() || targetPort <= 0)
                 {
-                    std::cerr << "Usage: send <peerId>" << std::endl;
+                    std::cerr << "Usage: send <ip> <port>" << std::endl;
                     continue;
                 }
-                std::cout << "[Main] Requesting to send to peer: " << peerId << std::endl;
-                streamer.startSendingTo(peerId);
+
+                std::string id = "s" + std::to_string(++sendCounter);
+                streams.addSender(id, ip, targetPort);
+                std::cout << "[Main] Sending audio to " << ip << ":" << targetPort << " (id=" << id << ")" << std::endl;
             }
             else if (cmd == "recv")
             {
-                if (peerId.empty())
-                {
-                    std::cerr << "Usage: recv <peerId>" << std::endl;
-                    continue;
-                }
-                std::cout << "[Main] Requesting to receive from peer: " << peerId << std::endl;
-                streamer.startReceivingFrom(peerId, std::nullopt);
+                std::string id = "r" + std::to_string(++recvCounter);
+                streams.addReceiver(id);
+                std::cout << "[Main] Receiving audio on port " << streams.getReceiverPort(id) << " (id=" << id << ")" << std::endl;
             }
             else if (cmd == "stop-send")
             {
-                if (peerId.empty())
+                std::string id;
+                iss >> id;
+                if (id.empty())
                 {
-                    std::cerr << "Usage: stop-send <peerId>" << std::endl;
+                    std::cerr << "Usage: stop-send <id>" << std::endl;
                     continue;
                 }
-                std::cout << "[Main] Stopping send to peer: " << peerId << std::endl;
-                streamer.stopSendingTo(peerId);
+                streams.removeSender(id);
+                std::cout << "[Main] Stopped sender " << id << std::endl;
             }
             else if (cmd == "stop-recv")
             {
-                if (peerId.empty())
+                std::string id;
+                iss >> id;
+                if (id.empty())
                 {
-                    std::cerr << "Usage: stop-recv <peerId>" << std::endl;
+                    std::cerr << "Usage: stop-recv <id>" << std::endl;
                     continue;
                 }
-                std::cout << "[Main] Stopping receive from peer: " << peerId << std::endl;
-                streamer.stopReceivingFrom(peerId);
+                streams.removeReceiver(id);
+                std::cout << "[Main] Stopped receiver " << id << std::endl;
+            }
+            else if (cmd == "stop-all")
+            {
+                streams.removeAllSenders();
+                streams.removeAllReceivers();
+                std::cout << "[Main] Stopped all streams" << std::endl;
             }
             else if (cmd == "list")
             {
-                auto peers = streamer.getPeers();
+                auto peers = discovery.getPeers();
                 if (peers.empty())
                 {
                     std::cout << "[Main] No peers discovered yet." << std::endl;
                 }
                 else
                 {
-                    std::cout << "[Main] Known peers:" << std::endl;
+                    std::cout << "[Main] Discovered peers:" << std::endl;
                     for (const auto &peer : peers)
-                        std::cout << "  - " << peer.id << std::endl;
+                        std::cout << "  - " << peer.id << " (" << peer.name << ") " << peer.address << std::endl;
                 }
             }
             else if (cmd == "quit")
             {
-                std::cout << "[Main] Exiting..." << std::endl;
                 break;
             }
             else
@@ -143,8 +155,8 @@ int main(int argc, char *argv[])
             }
         }
 
-        streamer.stop();
-        std::cout << "[Main] AudioStreamer stopped." << std::endl;
+        discovery.stop();
+        std::cout << "[Main] Exited." << std::endl;
     }
     catch (const std::exception &ex)
     {

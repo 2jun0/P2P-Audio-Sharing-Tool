@@ -9,9 +9,6 @@ struct AudioDevice
     std::string uid;
     bool hasInput;
     bool hasOutput;
-#if defined(__APPLE__)
-    int id;
-#endif
 };
 
 #endif /* audio_device_hpp */
