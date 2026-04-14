@@ -10,6 +10,7 @@
 
 #include "stream_manager.hpp"
 #include "lookup_service.hpp"
+#include "signaling_service.hpp"
 #include "audio_device_manager.hpp"
 
 using json = nlohmann::json;
@@ -66,6 +67,13 @@ struct alc_lookup
 struct alc_stream_manager
 {
     std::unique_ptr<StreamManager> impl;
+};
+
+/* ── SignalingService opaque handle ── */
+
+struct alc_signaling
+{
+    std::unique_ptr<SignalingService> impl;
 };
 
 extern "C"
@@ -181,6 +189,117 @@ extern "C"
             j["address"] = peer.address;
 
             return writeStringToOut(j.dump(), out, out_len, required_len);
+        }
+        catch (...)
+        {
+            return ALC_STATUS_INTERNAL_ERROR;
+        }
+    }
+
+    /* ── SignalingService ── */
+
+    alc_signaling_t *alc_signaling_create(int32_t port, const char *my_id,
+                                          alc_offer_received_cb offer_cb, void *offer_user_data,
+                                          alc_accept_received_cb accept_cb, void *accept_user_data,
+                                          alc_disconnected_cb disconnected_cb, void *disconnected_user_data)
+    {
+        if (port <= 0 || !my_id || my_id[0] == '\0' || !offer_cb)
+            return nullptr;
+
+        try
+        {
+            auto *sig = new alc_signaling();
+            sig->impl = std::make_unique<SignalingService>(
+                static_cast<int>(port), my_id,
+                [offer_cb, offer_user_data](const std::string &peerId, const std::string &peerAddress) -> int
+                {
+                    return static_cast<int>(offer_cb(peerId.c_str(), peerAddress.c_str(), offer_user_data));
+                },
+                [accept_cb, accept_user_data](const std::string &peerId, const std::string &peerAddress, int port)
+                {
+                    if (accept_cb)
+                        accept_cb(peerId.c_str(), peerAddress.c_str(), static_cast<int32_t>(port), accept_user_data);
+                },
+                [disconnected_cb, disconnected_user_data](const std::string &peerId)
+                {
+                    if (disconnected_cb)
+                        disconnected_cb(peerId.c_str(), disconnected_user_data);
+                });
+            return sig;
+        }
+        catch (...)
+        {
+            return nullptr;
+        }
+    }
+
+    void alc_signaling_destroy(alc_signaling_t *sig)
+    {
+        if (!sig)
+            return;
+        try
+        {
+            sig->impl.reset();
+            delete sig;
+        }
+        catch (...)
+        {
+        }
+    }
+
+    alc_status_t alc_signaling_start(alc_signaling_t *sig)
+    {
+        if (!sig || !sig->impl)
+            return ALC_STATUS_INVALID_ARGUMENT;
+        try
+        {
+            sig->impl->start();
+            return ALC_STATUS_OK;
+        }
+        catch (...)
+        {
+            return ALC_STATUS_INTERNAL_ERROR;
+        }
+    }
+
+    alc_status_t alc_signaling_stop(alc_signaling_t *sig)
+    {
+        if (!sig || !sig->impl)
+            return ALC_STATUS_INVALID_ARGUMENT;
+        try
+        {
+            sig->impl->stop();
+            return ALC_STATUS_OK;
+        }
+        catch (...)
+        {
+            return ALC_STATUS_INTERNAL_ERROR;
+        }
+    }
+
+    alc_status_t alc_signaling_send_offer(alc_signaling_t *sig, const char *peer_address)
+    {
+        if (!sig || !sig->impl || !peer_address || peer_address[0] == '\0')
+            return ALC_STATUS_INVALID_ARGUMENT;
+        try
+        {
+            sig->impl->sendOffer(peer_address);
+            return ALC_STATUS_OK;
+        }
+        catch (...)
+        {
+            return ALC_STATUS_INTERNAL_ERROR;
+        }
+    }
+
+    alc_status_t alc_signaling_disconnect(alc_signaling_t *sig, const char *peer_id)
+    {
+        if (!sig || !sig->impl || !peer_id || peer_id[0] == '\0')
+            return ALC_STATUS_INVALID_ARGUMENT;
+        try
+        {
+            sig->impl->disconnect(peer_id);
+            return ALC_STATUS_OK;
         }
         catch (...)
         {

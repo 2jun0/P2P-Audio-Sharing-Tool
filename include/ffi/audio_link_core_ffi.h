@@ -58,6 +58,32 @@ extern "C"
       size_t out_len,
       size_t *required_len);
 
+  /* ── SignalingService ── */
+
+  typedef struct alc_signaling alc_signaling_t;
+
+  // Callback: return listen port to accept the offer, or -1 to reject.
+  typedef int32_t (*alc_offer_received_cb)(const char *peer_id, const char *peer_address, void *user_data);
+
+  // Callback: called when our offer is accepted by a peer.
+  typedef void (*alc_accept_received_cb)(const char *peer_id, const char *peer_address, int32_t port, void *user_data);
+
+  // Callback: called when a peer's TCP connection drops.
+  typedef void (*alc_disconnected_cb)(const char *peer_id, void *user_data);
+
+  ALC_FFI_API alc_signaling_t *alc_signaling_create(
+      int32_t port, const char *my_id,
+      alc_offer_received_cb offer_cb, void *offer_user_data,
+      alc_accept_received_cb accept_cb, void *accept_user_data,
+      alc_disconnected_cb disconnected_cb, void *disconnected_user_data);
+  ALC_FFI_API void alc_signaling_destroy(alc_signaling_t *sig);
+
+  ALC_FFI_API alc_status_t alc_signaling_start(alc_signaling_t *sig);
+  ALC_FFI_API alc_status_t alc_signaling_stop(alc_signaling_t *sig);
+
+  ALC_FFI_API alc_status_t alc_signaling_send_offer(alc_signaling_t *sig, const char *peer_address);
+  ALC_FFI_API alc_status_t alc_signaling_disconnect(alc_signaling_t *sig, const char *peer_id);
+
   /* ── StreamManager ── */
 
   typedef struct alc_stream_manager alc_stream_manager_t;
